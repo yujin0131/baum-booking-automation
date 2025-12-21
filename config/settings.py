@@ -27,11 +27,12 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     timezone: str = Field(default="Asia/Seoul")
 
-    headless_browser: bool = Field(default=True)
-    browser_timeout: int = Field(default=30000, ge=5000)
-
     max_retries: int = Field(default=3, ge=1)
     retry_delay_seconds: int = Field(default=60, ge=1)
+
+    # Test Mode
+    use_test_mode: bool = Field(default=False, description="HTML 파일로 오프라인 테스트")
+    test_html_file: str = Field(default="sample_booking_page.html", description="테스트용 HTML 파일")
 
     @field_validator("check_in_time")
     @classmethod

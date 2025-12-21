@@ -1,0 +1,234 @@
+settings:
+  timeout_seconds: 30      # 페이지 로딩 대기 시간
+  retry_count: 3           # 실패 시 재시도 횟수
+
+login:
+  login_url: "https://nid.naver.com/nidlogin.login"
+
+  email_input:
+    description: "아이디를 입력하는 입력창"
+    selector: "#id"
+    fallbacks:
+      - "input[name='id']"
+      - "[placeholder*='아이디']"
+
+  password_input:
+    description: "비밀번호를 입력하는 입력창"
+    selector: "#pw"
+    fallbacks:
+      - "input[name='pw']"
+      - "[type='password']"
+
+  login_button:
+    description: "로그인 버튼"
+    selector: ".btn_login"
+    fallbacks:
+      - "#log\\.login"
+      - "button[type='submit']"
+
+booking_list:
+  # HTML: <div class="BookingListView__root__xkxEO">
+  container:
+    description: "예약 목록 전체"
+    selector: "[class*='BookingListView__root']"
+    fallbacks:
+      - ".BookingListView__root__xkxEO"
+      - "[class*='booking-list']"
+      - "[data-booking-list]"
+
+  # HTML: <div class="BookingListView__list__mzfxH">
+  list:
+    description: "예약 리스트"
+    selector: "[class*='BookingListView__list']"
+    fallbacks:
+      - ".BookingListView__list__mzfxH"
+      - "[class*='BookingListView__table']"
+
+  # HTML: <div class="BookingListView__cell__OebyL">
+  item:
+    description: "개별 예약 항목"
+    selector: "[class*='BookingListView__cell']"
+    fallbacks:
+      - ".BookingListView__cell__OebyL"
+      - "[class*='BookingListView__content']"
+
+booking_info:
+  # HTML: <span class="BookingListView__name__Oouqk">홍길동</span>
+  guest_name:
+    description: "예약자 이름"
+    selector: "[class*='BookingListView__name']"
+    fallbacks:
+      - ".BookingListView__name__Oouqk"
+      - "[class*='name']"
+
+  # HTML: <span class="BookingListView__phone__i04wO">010-1234-5678</span>
+  guest_phone:
+    description: "예약자 전화번호"
+    selector: "[class*='BookingListView__phone']"
+    fallbacks:
+      - ".BookingListView__phone__i04wO"
+      - "[class*='phone']"
+
+  # HTML: <span class="BookingListView__state__xxx">확정</span>
+  booking_status:
+    description: "예약 상태"
+    selector: "[class*='BookingListView__state']"
+    fallbacks:
+      - "[class*='BookingListView__payment-state']"
+      - "[class*='BookingListView__status']"
+      - "[class*='state']"
+
+  # HTML: <span class="BookingListView__total-price__xxx">50,000원</span>
+  price:
+    description: "결제 금액"
+    selector: "[class*='BookingListView__total-price']"
+    fallbacks:
+      - "[class*='BookingListView__post-price']"
+      - "[class*='total-price']"
+      - "[class*='price']"
+
+  # HTML: <span class="BookingListView__host__xxx">ROOM 205 <남성 도미토리></span>
+  room_type:
+    description: "객실 타입"
+    selector: "[class*='BookingListView__host']"
+    fallbacks:
+      - "[class*='BookingListView__option']"
+      - "[class*='BookingListView__product-name']"
+      - "[class*='host']"
+
+  # HTML: <span class="BookingListView__info__GqPDZ">...</span>
+  additional_info:
+    description: "추가 정보 영역"
+    selector: "[class*='BookingListView__info']"
+    fallbacks:
+      - ".BookingListView__info__GqPDZ"
+      - "[class*='info']"
+
+  # HTML: <span class="BookingListView__qty__xxx">2명</span>
+  guest_count:
+    description: "인원 수"
+    selector: "[class*='BookingListView__qty']"
+    fallbacks:
+      - "[class*='BookingListView__num']"
+      - "[class*='qty']"
+      - "[class*='count']"
+
+  # HTML: <span class="BookingListView__book-number__xxx">12345</span>
+  booking_number:
+    description: "예약 번호"
+    selector: "[class*='BookingListView__book-number']"
+    fallbacks:
+      - "[class*='BookingListView__number']"
+      - "[class*='book-number']"
+
+  # HTML: <span class="BookingListView__book-date__xxx">2024.12.21</span>
+  book_date:
+    description: "예약 날짜"
+    selector: "[class*='BookingListView__book-date']"
+    fallbacks:
+      - "[class*='book-date']"
+      - "[class*='date']"
+
+  # HTML: <span class="BookingListView__order-date__xxx">2024.12.20</span>
+  order_date:
+    description: "주문 날짜"
+    selector: "[class*='BookingListView__order-date']"
+    fallbacks:
+      - "[class*='order-date']"
+
+  # HTML: <span class="BookingListView__comment__xxx">요청사항</span>
+  comment:
+    description: "요청사항"
+    selector: "[class*='BookingListView__comment']"
+    fallbacks:
+      - "[class*='comment']"
+      - "[class*='memo']"
+
+  date_info:
+    description: "날짜 정보"
+    selector: "[class*='DateRange__root']"
+    fallbacks:
+      - ".DateRange__root__Otswo"
+      - "[class*='ScrollCalendar__date']"
+      - "[class*='date']"
+
+  booking_number:
+    description: "예약 번호"
+    selector: "[class*='BookingListView__number']"
+    fallbacks:
+      - ".BookingListView__number__Z1J"
+      - "[class*='number']"
+      - "[data-booking-id]"
+
+  booking_id:
+    description: "예약 날짜 ID"
+    selector: "[data-booking-id]"
+    attribute: "data-booking-id"
+    fallback_attributes:
+      - "data-reservation-id"
+      - "data-id"
+      - "id"
+
+  check_in_date:
+    description: "체크인 날짜"
+    selector: "[class*='BookingListView__cell']:nth-child(2)"
+    fallbacks:
+      - "[class*='checkin']"
+      - "[class*='check-in']"
+      - "[class*='date']"
+
+  check_out_date:
+    description: "체크아웃 날짜"
+    selector: "[class*='BookingListView__cell']:nth-child(3)"
+    fallbacks:
+      - "[class*='checkout']"
+      - "[class*='check-out']"
+
+  room_number:
+    description: "객실 번호"
+    selector: "[class*='room-number']"
+    fallbacks:
+      - "[class*='room_number']"
+      - "[class*='roomNo']"
+
+  special_request:
+    description: "요청사항"
+    selector: "[class*='request']"
+    fallbacks:
+      - "[class*='memo']"
+      - "[class*='note']"
+      - "[class*='comment']"
+
+search:
+  # HTML: <div class="BookingTextSearch__root__WbFgJ">
+  search_input:
+    description: "검색창"
+    selector: "[class*='BookingTextSearch__root']"
+    fallbacks:
+      - ".BookingTextSearch__root__WbFgJ"
+      - "input[type='search']"
+      - "[class*='search']"
+
+  date_picker:
+    description: "날짜 범위"
+    selector: "[class*='DateRange__selector']"
+    fallbacks:
+      - ".DateRange__selector__Wc4c3"
+      - "[class*='DatePeriodCalendar__root']"
+
+pagination:
+  next_button:
+    description: "다음 페이지"
+    selector: "[class*='DatePeriodCalendar__next']"
+    fallbacks:
+      - ".DatePeriodCalendar__next__PwuXR"
+      - "[class*='next']"
+      - "[aria-label='다음']"
+
+  prev_button:
+    description: "이전 페이지"
+    selector: "[class*='DatePeriodCalendar__prev']"
+    fallbacks:
+      - ".DatePeriodCalendar__prev__zsM83"
+      - "[class*='prev']"
+      - "[aria-label='이전']"
