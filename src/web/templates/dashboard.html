@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}대시보드 - 예약 자동화 시스템{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">대시보드</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+<span class="text-muted me-3" id="lastCrawlTime">
+                {% if last_crawl_time %}
+                마지막: {{ last_crawl_time.strftime('%m/%d %H:%M') }}
+                {% else %}
+                마지막: -
+                {% endif %}
+            </span>
+            <button type="button" class="btn btn-sm btn-primary" id="btnCrawl" onclick="triggerCrawl()">
+                <i class="bi bi-cloud-download"></i> 크롤링 실행
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> 새로고침
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 크롤링 결과 알림 -->
+<div id="crawlAlert" class="alert alert-dismissible fade show d-none" role="alert">
+    <span id="crawlMessage"></span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">총 예약</h5>
+                <h2 class="mb-0">{{ stats.total_bookings }}</h2>
+                <small class="text-muted">전체 예약 건수</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">발송 완료</h5>
+                <h2 class="mb-0 text-success">{{ stats.sent_sms }}</h2>
+                <small class="text-muted">SMS 발송 성공</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5 class="card-title text-muted">대기 중</h5>
+                <h2 class="mb-0 text-warning">{{ stats.pending_sms }}</h2>
+                <small class="text-muted">발송 예정 SMS</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Bookings -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">최근 예약</h5>
+        <a href="/bookings" class="btn btn-sm btn-primary">전체 보기</a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>예약자</th>
+                        <th>객실</th>
+                        <th>호실</th>
+                        <th>예약 감지</th>
+                        <th>체크인 날짜</th>
+                        <th>상태</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in recent_bookings %}
+                    <tr>
+                        <td>{{ booking.id }}</td>
+                        <td>
+                            <strong>{{ booking.guest_name }}</strong><br>
+                            <small class="text-muted">{{ booking.guest_phone }}</small>
+                        </td>
+                        <td>{{ booking.room_type }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ booking.room_number }}</span>
+                        </td>
+                        <td>{{ booking.created_at.strftime('%m/%d %H:%M') if booking.created_at else '-' }}</td>
+                        <td>{{ booking.check_in_date.strftime('%m/%d') if booking.check_in_date else '-' }}</td>
+                        <td>
+                            {% if booking.status.value == 'new' %}
+                                <span class="badge bg-info">신규</span>
+                            {% elif booking.status.value == 'sms_sent' %}
+                                <span class="badge bg-success">발송완료</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ booking.status.value }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/booking/{{ booking.id }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> 상세
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function triggerCrawl() {
+    const btn = document.getElementById('btnCrawl');
+    const alert = document.getElementById('crawlAlert');
+    const msg = document.getElementById('crawlMessage');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 크롤링 중...';
+
+    try {
+        const response = await fetch('/api/crawl', { method: 'POST' });
+        const data = await response.json();
+
+        alert.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+        if (data.success) {
+            alert.classList.add('alert-success');
+            msg.textContent = `크롤링 완료: ${data.total}개 예약, ${data.new_count}개 신규`;
+            if (data.new_count > 0) {
+                setTimeout(() => location.reload(), 2000);
+            }
+        } else {
+            alert.classList.add('alert-danger');
+            msg.textContent = `크롤링 실패: ${data.error}`;
+        }
+    } catch (e) {
+        alert.classList.remove('d-none');
+        alert.classList.add('alert-danger');
+        msg.textContent = `오류: ${e.message}`;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-download"></i> 크롤링 실행';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}SMS 로그 - 예약 자동화 시스템{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">SMS 발송 로그</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="/sms" class="btn btn-sm btn-outline-secondary {% if not filter_status %}active{% endif %}">전체</a>
+            <a href="/sms?status=scheduled" class="btn btn-sm btn-outline-warning {% if filter_status == 'scheduled' %}active{% endif %}">예약됨</a>
+            <a href="/sms?status=sent" class="btn btn-sm btn-outline-success {% if filter_status == 'sent' %}active{% endif %}">발송완료</a>
+            <a href="/sms?status=failed" class="btn btn-sm btn-outline-danger {% if filter_status == 'failed' %}active{% endif %}">실패</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>예약자</th>
+                        <th>타입</th>
+                        <th>수신번호</th>
+                        <th>예약시간</th>
+                        <th>발송시간</th>
+                        <th>상태</th>
+                        <th>재시도</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sms in sms_logs %}
+                    <tr>
+                        <td>{{ sms.id }}</td>
+                        <td>
+                            <a href="/booking/{{ sms.booking_id }}">
+                                {{ sms.booking.guest_name if sms.booking else '-' }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if sms.sms_type.value == 'welcome' %}
+                                <span class="badge bg-primary">환영</span>
+                            {% elif sms.sms_type.value == 'check_in_guide' %}
+                                <span class="badge bg-info">입실안내</span>
+                            {% else %}
+                                <span class="badge bg-secondary">시설안내</span>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ sms.recipient_phone }}</small></td>
+                        <td>{{ sms.scheduled_time.strftime('%m/%d %H:%M') if sms.scheduled_time else '-' }}</td>
+                        <td>{{ sms.sent_time.strftime('%m/%d %H:%M') if sms.sent_time else '-' }}</td>
+                        <td>
+                            {% if sms.status.value == 'sent' %}
+                                <span class="badge bg-success">발송완료</span>
+                            {% elif sms.status.value == 'failed' %}
+                                <span class="badge bg-danger">실패</span>
+                            {% elif sms.status.value == 'scheduled' %}
+                                <span class="badge bg-warning">예약됨</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ sms.status.value }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>{{ sms.retry_count }} / {{ sms.max_retries }}</small>
+                        </td>
+                        <td>
+                            {% if sms.status.value in ['failed', 'scheduled'] %}
+                            <button class="btn btn-sm btn-outline-primary" onclick="resendSMS({{ sms.id }})">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function resendSMS(smsId) {
+    if (!confirm('이 SMS를 재발송하시겠습니까?')) return;
+
+    try {
+        const response = await fetch(`/sms/${smsId}/resend`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            alert('SMS 재발송 완료!');
+            location.reload();
+        } else {
+            alert('SMS 재발송 실패: ' + (result.error || '알 수 없는 오류'));
+        }
+    } catch (error) {
+        alert('오류 발생: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

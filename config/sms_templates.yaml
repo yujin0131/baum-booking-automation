@@ -1,0 +1,55 @@
+# =============================================================================
+#   {guest_name}      - 예약자 이름
+#   {check_in_date}   - 체크인 날짜 (2024년 1월 15일)
+#   {check_in_time}   - 체크인 시간 (15:00)
+#   {check_out_time}  - 체크아웃 시간 (11:00)
+#   {room_type}       - 객실 타입 (1층)
+#   {room_number}     - 호실 번호 (101)
+#   {room_info}       - 객실 정보 전체 (1층 (101호))
+#   {room_password}  - 입실 비밀번호
+#   {address}         - 주소
+#   {wifi_ssid}       - 와이파이 이름
+#   {wifi_password}   - 와이파이 비밀번호
+#   {emergency_contact} - 긴급 연락처
+# =============================================================================
+
+welcome: |
+  안녕하세요 {guest_name}님,
+  {check_in_date} 예약이 확인되었습니다.
+
+  체크인: {check_in_time}
+  {room_info}
+
+  감사합니다.
+
+check_in_guide: |
+  [입실 안내]
+  {guest_name}님, 오늘 입실 예정이십니다.
+
+  ▶ 체크인: {check_in_time}
+  ▶ 위치: {address}
+  ▶ 입실 비밀번호: {room_password}
+
+  ▶ 셀프 체크인 방법
+  1. 현관 도어락 비밀번호 입력
+  2. 객실 번호 확인 후 입실
+
+facility_info: |
+  [시설 이용 안내]
+
+  ▶ WiFi
+  - SSID: {wifi_ssid}
+  - 비밀번호: {wifi_password}
+
+  ▶ 주의사항
+  - 금연 시설입니다
+  - 퇴실 시 쓰레기 분리수거 부탁드립니다
+  - 체크아웃: {check_out_time}
+
+  ▶ 긴급 연락처: {emergency_contact}
+
+
+special_request_suffix: |
+
+  요청사항이 확인되었습니다.
+  '{special_request}'

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}예약 관리 - 예약 자동화 시스템{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">예약 관리</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="/bookings" class="btn btn-outline-secondary {% if not filter %}active{% endif %}">전체</a>
+            <a href="/bookings?filter=check_in" class="btn btn-outline-secondary {% if filter == 'check_in' %}active{% endif %}">오늘 입실</a>
+            <a href="/bookings?filter=check_out" class="btn btn-outline-secondary {% if filter == 'check_out' %}active{% endif %}">오늘 퇴실</a>
+            <a href="/bookings?filter=long_stay" class="btn btn-outline-secondary {% if filter == 'long_stay' %}active{% endif %}">연박</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="bookingsTable">
+                <thead>
+                    <tr>
+                        <th data-sort="number" class="sortable">ID</th>
+                        <th data-sort="string" class="sortable">예약자</th>
+                        <th data-sort="string" class="sortable">연락처</th>
+                        <th data-sort="string" class="sortable">객실 타입</th>
+                        <th data-sort="string" class="sortable">호실</th>
+                        <th data-sort="string" class="sortable">예약 감지</th>
+                        <th data-sort="string" class="sortable">체크인</th>
+                        <th data-sort="string" class="sortable">체크아웃</th>
+                        <th>특별요청</th>
+                        <th>상태</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in bookings %}
+                    <tr>
+                        <td>{{ booking.id }}</td>
+                        <td><strong>{{ booking.guest_name }}</strong></td>
+                        <td><small>{{ booking.guest_phone }}</small></td>
+                        <td>{{ booking.room_type }}</td>
+                        <td><span class="badge bg-secondary">{{ booking.room_number }}</span></td>
+                        <td>{{ booking.created_at.strftime('%m/%d %H:%M') if booking.created_at else '-' }}</td>
+                        <td>{{ booking.check_in_date.strftime('%Y-%m-%d') if booking.check_in_date else '-' }}</td>
+                        <td>{{ booking.check_out_date.strftime('%Y-%m-%d') if booking.check_out_date else '-' }}</td>
+                        <td>
+                            {% if booking.special_request %}
+                                <span class="badge bg-warning text-dark" title="{{ booking.special_request }}">
+                                    <i class="bi bi-exclamation-circle"></i> 요청있음
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if booking.status.value == 'cancelled' %}
+                                <span class="badge bg-danger">취소</span>
+                            {% elif booking.status.value == 'new' %}
+                                <span class="badge bg-info">신규</span>
+                            {% elif booking.status.value == 'sms_sent' %}
+                                <span class="badge bg-success">발송완료</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ booking.status.value }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/booking/{{ booking.id }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> 상세
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { text-decoration: underline; }
+.sortable.asc::after { content: ' ▲'; font-size: 0.7em; }
+.sortable.desc::after { content: ' ▼'; font-size: 0.7em; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('bookingsTable');
+    const headers = table.querySelectorAll('th[data-sort]');
+
+    headers.forEach((header, index) => {
+        header.addEventListener('click', () => {
+            const type = header.dataset.sort;
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const isAsc = header.classList.contains('asc');
+
+            // 다른 헤더 정렬 표시 제거
+            headers.forEach(h => h.classList.remove('asc', 'desc'));
+            header.classList.add(isAsc ? 'desc' : 'asc');
+
+            const dir = isAsc ? -1 : 1;
+
+            rows.sort((a, b) => {
+                let aVal = a.cells[index].textContent.trim();
+                let bVal = b.cells[index].textContent.trim();
+
+                if (type === 'number') {
+                    return (parseInt(aVal) - parseInt(bVal)) * dir;
+                }
+                return aVal.localeCompare(bVal, 'ko') * dir;
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}예약 상세 - {{ booking.guest_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">예약 상세 정보</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="/bookings" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 목록으로
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">예약 정보</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th width="40%">예약 ID:</th>
+                        <td>{{ booking.id }}</td>
+                    </tr>
+                    <tr>
+                        <th>네이버 예약 ID:</th>
+                        <td><code>{{ booking.naver_booking_id }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>예약자:</th>
+                        <td><strong>{{ booking.guest_name }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>연락처:</th>
+                        <td>{{ booking.guest_phone }}</td>
+                    </tr>
+                    <tr>
+                        <th>인원:</th>
+                        <td>{{ booking.guest_count }}명</td>
+                    </tr>
+                    <tr>
+                        <th>상태:</th>
+                        <td>
+                            <span class="badge bg-info">{{ booking.status.value }}</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">객실 정보</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <th width="40%">객실 타입:</th>
+                        <td>{{ booking.room_type }}</td>
+                    </tr>
+                    <tr>
+                        <th>호실:</th>
+                        <td><span class="badge bg-secondary fs-6">{{ booking.room_number }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>입실 비밀번호:</th>
+                        <td><code class="fs-5">{{ booking.room_password }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>예약 감지:</th>
+                        <td>{{ booking.created_at.strftime('%Y-%m-%d %H:%M') if booking.created_at else '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>체크인:</th>
+                        <td>{{ booking.check_in_date.strftime('%Y-%m-%d') if booking.check_in_date else '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>체크아웃:</th>
+                        <td>{{ booking.check_out_date.strftime('%Y-%m-%d') if booking.check_out_date else '-' }}</td>
+                    </tr>
+                    <tr>
+                        <th>특별 요청:</th>
+                        <td>
+                            {% if booking.special_request %}
+                                <div class="alert alert-warning py-2 mb-0">
+                                    <i class="bi bi-exclamation-circle"></i> {{ booking.special_request }}
+                                </div>
+                            {% else %}
+                                <span class="text-muted">없음</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SMS Logs -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">SMS 발송 내역</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>타입</th>
+                        <th>수신번호</th>
+                        <th>예약 시간</th>
+                        <th>발송 시간</th>
+                        <th>상태</th>
+                        <th>재시도</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sms in sms_logs %}
+                    <tr>
+                        <td>
+                            {% if sms.sms_type.value == 'welcome' %}
+                                <span class="badge bg-primary">환영</span>
+                            {% elif sms.sms_type.value == 'check_in_guide' %}
+                                <span class="badge bg-info">입실안내</span>
+                            {% else %}
+                                <span class="badge bg-secondary">시설안내</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ sms.recipient_phone }}</td>
+                        <td>{{ sms.scheduled_time.strftime('%m/%d %H:%M') if sms.scheduled_time else '-' }}</td>
+                        <td>{{ sms.sent_time.strftime('%m/%d %H:%M') if sms.sent_time else '-' }}</td>
+                        <td>
+                            {% if sms.status.value == 'sent' %}
+                                <span class="badge bg-success">발송완료</span>
+                            {% elif sms.status.value == 'failed' %}
+                                <span class="badge bg-danger">실패</span>
+                            {% elif sms.status.value == 'scheduled' %}
+                                <span class="badge bg-warning">예약됨</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ sms.status.value }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ sms.retry_count }} / {{ sms.max_retries }}</td>
+                        <td>
+                            {% if sms.status.value in ['failed', 'scheduled'] %}
+                            <button class="btn btn-sm btn-outline-primary" onclick="resendSMS({{ sms.id }})">
+                                <i class="bi bi-arrow-clockwise"></i> 재발송
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="7">
+                            <details>
+                                <summary class="text-muted" style="cursor: pointer;">문자 내용 보기</summary>
+                                <pre class="mt-2 p-2 bg-light border rounded">{{ sms.message_content }}</pre>
+                            </details>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function resendSMS(smsId) {
+    if (!confirm('이 SMS를 재발송하시겠습니까?')) return;
+
+    try {
+        const response = await fetch(`/sms/${smsId}/resend`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            alert('SMS 재발송 완료!');
+            location.reload();
+        } else {
+            alert('SMS 재발송 실패: ' + (result.error || '알 수 없는 오류'));
+        }
+    } catch (error) {
+        alert('오류 발생: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

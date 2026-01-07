@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     database_url: str = Field(default="sqlite:///./booking_automation.db")
 
-    naver_email: str = Field(..., description="Naver account email")
+    naver_id: str = Field(..., description="Naver account ID")
     naver_password: str = Field(..., description="Naver account password")
     naver_place_url: str = Field(..., description="Naver Place management URL")
 

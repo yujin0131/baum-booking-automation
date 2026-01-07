@@ -1,10 +1,15 @@
 import asyncio
 import signal
+import sys
 import threading
 from typing import Optional
 
+import nest_asyncio
 from loguru import logger
 import uvicorn
+
+# Python 3.9 asyncio 호환성 - 중첩 이벤트 루프 허용
+nest_asyncio.apply()
 
 from config.settings import settings
 from src.utils.logger import setup_logging
@@ -22,14 +27,19 @@ class Application:
     def start_dashboard(self):
         from src.web.dashboard import app as dashboard_app
 
+        # 스레드에서 새 이벤트 루프 생성
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
         config = uvicorn.Config(
             dashboard_app,
             host="0.0.0.0",
             port=8000,
             log_level="warning",
+            loop="asyncio",
         )
         server = uvicorn.Server(config)
-        server.run()
+        loop.run_until_complete(server.serve())
 
     async def startup(self):
         try:
