@@ -1,0 +1,103 @@
+# =============================================================================
+# 카카오 알림톡 템플릿 정보
+# - 카카오 비즈니스에 등록된 템플릿 정보를 관리
+# - template_code: 카카오에서 승인받은 템플릿 코드
+# - variables: 템플릿에서 사용하는 변수 목록
+# - fallback_sms: 알림톡 실패 시 사용할 SMS 템플릿 키
+# =============================================================================
+
+templates:
+  # 일반 객실 입실 안내
+  check_in_guide_normal:
+    template_code: "staytuned_checkin_normal_001"  # TODO: 실제 승인받은 코드로 변경
+    name: "입실 안내 (일반 객실)"
+    description: "일반 객실 입실 시 발송하는 안내 메시지"
+    variables:
+      - guest_name
+      - check_in_date
+      - check_in_time
+      - check_out_time
+      - room_number
+      - room_password
+    fallback_sms: "check_in_guide_normal"  # sms_templates.yaml의 키
+    buttons:
+      - type: "WL"
+        name: "숙소 안내 보기"
+        url_mobile: "https://naver.me/I55Re2hF"
+        url_pc: "https://naver.me/I55Re2hF"
+
+  # 여성 도미토리 입실 안내
+  check_in_guide_female_dorm:
+    template_code: "staytuned_checkin_female_002"  # TODO: 실제 승인받은 코드로 변경
+    name: "입실 안내 (여성 도미토리)"
+    description: "여성 도미토리 입실 시 발송하는 안내 메시지"
+    variables:
+      - guest_name
+      - check_in_date
+      - check_in_time
+      - check_out_time
+      - room_password
+    fallback_sms: "check_in_guide_female_dorm"
+    buttons:
+      - type: "WL"
+        name: "숙소 안내 보기"
+        url_mobile: "https://naver.me/I55Re2hF"
+        url_pc: "https://naver.me/I55Re2hF"
+
+  # 남성 도미토리 입실 안내
+  check_in_guide_male_dorm:
+    template_code: "staytuned_checkin_male_003"  # TODO: 실제 승인받은 코드로 변경
+    name: "입실 안내 (남성 도미토리)"
+    description: "남성 도미토리 입실 시 발송하는 안내 메시지"
+    variables:
+      - guest_name
+      - check_in_date
+      - check_in_time
+      - check_out_time
+      - room_password
+    fallback_sms: "check_in_guide_male_dorm"
+    buttons:
+      - type: "WL"
+        name: "숙소 안내 보기"
+        url_mobile: "https://naver.me/I55Re2hF"
+        url_pc: "https://naver.me/I55Re2hF"
+
+  # 포틀럭파티 안내
+  facility_info:
+    template_code: "staytuned_potluck_004"  # TODO: 실제 승인받은 코드로 변경
+    name: "포틀럭파티 안내"
+    description: "포틀럭파티 개최 시 발송하는 안내 메시지"
+    variables:
+      - event_date
+      - event_time
+      - location
+      - fee
+    fallback_sms: "facility_info"
+    buttons:
+      - type: "WL"
+        name: "참가 안내 보기"
+        url_mobile: "https://naver.me/5tJIZ0BF"
+        url_pc: "https://naver.me/5tJIZ0BF"
+
+  # 애견동반 안내
+  pet_info:
+    template_code: "staytuned_pet_005"  # TODO: 실제 승인받은 코드로 변경
+    name: "애견동반 안내"
+    description: "애견동반 옵션 선택 고객 대상 안내 메시지"
+    variables:
+      - guest_name
+    fallback_sms: "pet_info"
+    buttons: []
+
+# =============================================================================
+# 설정
+# =============================================================================
+config:
+  # 알림톡 우선 발송, 실패 시 SMS로 자동 fallback
+  auto_fallback_to_sms: true
+
+  # 발송 실패 시 재시도 횟수
+  max_retries: 2
+
+  # 재시도 대기 시간 (초)
+  retry_delay_seconds: 3

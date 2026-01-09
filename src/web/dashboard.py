@@ -84,23 +84,21 @@ async def bookings_page(request: Request, filter: Optional[str] = None):
         if filter == "check_in":
             # 오늘 입실
             query = query.filter(
-                Booking.check_in_date >= today_start,
-                Booking.check_in_date <= today_end,
+                Booking.check_in_date == today,
                 Booking.status != BookingStatus.CANCELLED
             )
         elif filter == "check_out":
             # 오늘 퇴실
             query = query.filter(
-                Booking.check_out_date >= today_start,
-                Booking.check_out_date <= today_end,
+                Booking.check_out_date == today,
                 Booking.status != BookingStatus.CANCELLED
             )
         elif filter == "long_stay":
             # 연박 (2박 이상 - 어제 이전 입실 + 오늘 이후 퇴실)
-            yesterday_start = today_start - timedelta(days=1)
+            yesterday = today - timedelta(days=1)
             query = query.filter(
-                Booking.check_in_date < yesterday_start,  # 어제 전에 입실 (2박 이상)
-                Booking.check_out_date >= today_start,    # 오늘 이후 퇴실
+                Booking.check_in_date < yesterday,  # 어제 전에 입실 (2박 이상)
+                Booking.check_out_date >= today,    # 오늘 이후 퇴실
                 Booking.status != BookingStatus.CANCELLED
             )
 
@@ -207,8 +205,3 @@ async def manual_crawl():
     except Exception as e:
         logger.error(f"[Manual Crawl Error] {e}")
         return {"success": False, "error": str(e)}
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)

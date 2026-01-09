@@ -1,6 +1,5 @@
-from datetime import datetime
-from typing import Optional
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Enum as SQLEnum
+from datetime import datetime, date
+from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey, Text, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 import enum
 
@@ -9,7 +8,6 @@ from src.utils.datetime_utils import now_kst
 from src.utils.constants import (
     BOOKING_STATUS_NEW,
     SMS_STATUS_PENDING,
-    SMS_TYPE_WELCOME,
 )
 
 
@@ -30,9 +28,42 @@ class SMSStatus(str, enum.Enum):
 
 
 class SMSType(str, enum.Enum):
-    WELCOME = "welcome"
     CHECK_IN_GUIDE = "check_in_guide"
     FACILITY_INFO = "facility_info"
+
+
+class KakaoTemplate(Base):
+    """카카오 알림톡 템플릿 관리"""
+    __tablename__ = "kakao_templates"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="ID")
+    template_key = Column(String(100), unique=True, nullable=False, index=True, comment="템플릿 키")
+    template_code = Column(String(100), nullable=False, comment="카카오 승인 템플릿 코드")
+    name = Column(String(200), nullable=False, comment="템플릿 이름")
+    description = Column(Text, nullable=True, comment="템플릿 설명")
+    variables = Column(Text, nullable=True, comment="필수 변수 목록 (JSON)")
+    buttons = Column(Text, nullable=True, comment="버튼 정보 (JSON)")
+    is_active = Column(Boolean, default=True, nullable=False, comment="활성화 여부")
+    created_at = Column(DateTime(timezone=True), default=now_kst, nullable=False, comment="생성 시간")
+    updated_at = Column(DateTime(timezone=True), default=now_kst, onupdate=now_kst, nullable=False, comment="수정 시간")
+
+    def __repr__(self):
+        return f"<KakaoTemplate(id={self.id}, key={self.template_key}, name={self.name})>"
+
+    def to_dict(self):
+        import json
+        return {
+            "id": self.id,
+            "template_key": self.template_key,
+            "template_code": self.template_code,
+            "name": self.name,
+            "description": self.description,
+            "variables": json.loads(self.variables) if self.variables else [],
+            "buttons": json.loads(self.buttons) if self.buttons else [],
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
 
 
 class Booking(Base):
@@ -46,8 +77,8 @@ class Booking(Base):
     guest_phone = Column(String(20), nullable=False, index=True, comment="예약자 전화번호")
     guest_count = Column(Integer, default=1, comment="예약 인원")
 
-    check_in_date = Column(DateTime(timezone=True), nullable=False, index=True, comment="체크인 날짜")
-    check_out_date = Column(DateTime(timezone=True), nullable=False, comment="체크아웃 날짜")
+    check_in_date = Column(Date, nullable=False, index=True, comment="체크인 날짜")
+    check_out_date = Column(Date, nullable=False, comment="체크아웃 날짜")
     booking_date = Column(DateTime(timezone=True), nullable=False, comment="예약 등록 날짜")
 
     room_type = Column(String(100), nullable=False, comment="객실 타입")
@@ -55,6 +86,7 @@ class Booking(Base):
     room_password = Column(String(50), nullable=True, comment="객실 비밀번호")
 
     special_request = Column(Text, nullable=True, comment="요청사항")
+    pet_option = Column(Boolean, default=False, comment="애견동반 옵션 여부")
 
     status = Column(SQLEnum(BookingStatus), default=BookingStatus.NEW, nullable=False, index=True, comment="예약 상태")
     is_immediate_booking = Column(Boolean, default=False, comment="당일 예약 여부")
@@ -81,6 +113,7 @@ class Booking(Base):
             "room_type": self.room_type,
             "room_number": self.room_number,
             "special_request": self.special_request,
+            "pet_option": self.pet_option,
             "room_password": self.room_password,
             "status": self.status.value if isinstance(self.status, enum.Enum) else self.status,
             "is_immediate_booking": self.is_immediate_booking,
@@ -97,9 +130,13 @@ class SMSLog(Base):
 
     booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, index=True, comment="예약 ID")
 
-    sms_type = Column(SQLEnum(SMSType), nullable=False, index=True, comment="SMS 타입 (WELCOME / CHECK_IN_GUIDE / FACILITY_INFO)")
+    sms_type = Column(SQLEnum(SMSType), nullable=False, index=True, comment="SMS 타입 (CHECK_IN_GUIDE / FACILITY_INFO)")
     recipient_phone = Column(String(20), nullable=False, comment="수신자 전화번호")
     message_content = Column(Text, nullable=False, comment="메시지 내용")
+
+    # 카카오 알림톡 템플릿 정보
+    template_key = Column(String(100), nullable=True, comment="카카오 알림톡 템플릿 키")
+    template_vars = Column(Text, nullable=True, comment="템플릿 변수 (JSON)")
 
     status = Column(SQLEnum(SMSStatus), default=SMSStatus.PENDING, nullable=False, index=True, comment="상태")
     scheduled_time = Column(DateTime(timezone=True), nullable=True, comment="발송 예정 시간")
@@ -126,6 +163,8 @@ class SMSLog(Base):
             "sms_type": self.sms_type.value if isinstance(self.sms_type, enum.Enum) else self.sms_type,
             "recipient_phone": self.recipient_phone,
             "message_content": self.message_content,
+            "template_key": self.template_key,
+            "template_vars": self.template_vars,
             "status": self.status.value if isinstance(self.status, enum.Enum) else self.status,
             "scheduled_time": self.scheduled_time.isoformat() if self.scheduled_time else None,
             "sent_time": self.sent_time.isoformat() if self.sent_time else None,

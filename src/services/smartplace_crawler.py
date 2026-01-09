@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 from pathlib import Path
 from bs4 import BeautifulSoup
 from loguru import logger
@@ -70,7 +70,7 @@ class SmartplaceCrawler:
 
         return False
 
-    async def crawl_booking_list(self, target_url: Optional[str] = None) -> Optional[str]:
+    async def crawl_booking_list(self, target_url: Optional[str] = None) -> Tuple[Optional[str], bool]:
         """
         예약 내역 페이지 크롤링
 
@@ -78,12 +78,12 @@ class SmartplaceCrawler:
             target_url: 크롤링할 URL (없으면 기본 스마트플레이스 URL)
 
         Returns:
-            페이지 outerHTML
+            (페이지 outerHTML, 오늘이용 필터 성공 여부)
         """
         try:
             if not await self._ensure_login():
                 logger.error("로그인 실패")
-                return None
+                return None, False
 
             url = target_url or self.SMARTPLACE_URL
             logger.info(f"페이지 이동: {url}")
@@ -91,15 +91,27 @@ class SmartplaceCrawler:
             await self.auth.page.goto(url, wait_until="domcontentloaded", timeout=60000)
             await self.auth._random_delay(3000, 5000)  # 페이지 로딩 대기
 
+            # "오늘이용" 필터 클릭
+            filter_applied = False
+            try:
+                today_button = await self.auth.page.query_selector("input.BookingListView__btn-quick-filter__pdKer[value*='오늘이용']")
+                if today_button:
+                    await today_button.click()
+                    await self.auth._random_delay(2000, 3000)
+                    logger.info("'오늘이용' 필터 적용 성공")
+                    filter_applied = True
+            except Exception as e:
+                logger.warning(f"'오늘이용' 필터 클릭 실패, 파싱 단계에서 필터링: {e}")
+
             # outerHTML 가져오기
             outer_html = await self.auth.page.evaluate("document.documentElement.outerHTML")
             logger.info(f"크롤링 완료: {len(outer_html)} bytes")
 
-            return outer_html
+            return outer_html, filter_applied
 
         except Exception as e:
             logger.error(f"크롤링 중 오류: {e}")
-            return None
+            return None, False
 
     async def crawl_element(self, target_url: str, selector: str) -> Optional[str]:
         """
@@ -118,7 +130,7 @@ class SmartplaceCrawler:
                 return None
 
             logger.info(f"페이지 이동: {target_url}")
-            await self.auth.page.goto(target_url, wait_until="networkidle")
+            await self.auth.page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
             await self.auth._random_delay(2000, 3000)
 
             # 특정 요소 대기 및 크롤링
@@ -135,9 +147,13 @@ class SmartplaceCrawler:
             logger.error(f"요소 크롤링 중 오류: {e}")
             return None
 
-    def parse_bookings_from_html(self, html: str) -> List[Dict]:
+    def parse_bookings_from_html(self, html: str, filter_today: bool = False) -> List[Dict]:
         """
         HTML에서 예약 데이터 파싱 (HtmlFileScraper 로직 활용)
+
+        Args:
+            html: 파싱할 HTML
+            filter_today: True이면 오늘 체크인 예약만 필터링
         """
         try:
             soup = BeautifulSoup(html, "html.parser")
@@ -159,6 +175,14 @@ class SmartplaceCrawler:
                 if booking_data and booking_data.get("guest_name"):
                     bookings.append(booking_data)
 
+            # 오늘 날짜 필터링
+            if filter_today:
+                from src.utils.datetime_utils import now_kst
+                today = now_kst().date()
+                original_count = len(bookings)
+                bookings = [b for b in bookings if b.get("check_in_date") == today]
+                logger.info(f"오늘 체크인 필터링: {original_count}개 → {len(bookings)}개")
+
             logger.success(f"{len(bookings)}개 예약 파싱 완료")
             return bookings
 
@@ -174,11 +198,12 @@ class SmartplaceCrawler:
             예약 데이터 리스트
         """
         url = target_url or self.booking_url
-        html = await self.crawl_booking_list(url)
+        html, filter_applied = await self.crawl_booking_list(url)
         if not html:
             return []
 
-        return self.parse_bookings_from_html(html)
+        # 필터 클릭 실패 시 파싱 단계에서 오늘 날짜로 필터링
+        return self.parse_bookings_from_html(html, filter_today=not filter_applied)
 
     # 기존 스케줄러 호환용 별칭
     async def get_new_bookings(self) -> List[Dict]:
@@ -191,35 +216,3 @@ class SmartplaceCrawler:
     async def close(self):
         """브라우저 종료"""
         await self.auth.close()
-
-
-async def main():
-    # .env에서 설정 읽어옴 (직접 전달도 가능)
-    crawler = SmartplaceCrawler(
-        username="staytuned0901",  # 또는 None이면 .env에서 읽음
-        password="staytuned0916",
-        headless=False
-    )
-
-    try:
-        # 크롤링 + 파싱 (URL도 .env에서 읽음)
-        bookings = await crawler.get_bookings()
-
-        if bookings:
-            logger.info(f"\n{'='*50}")
-            logger.info(f"총 {len(bookings)}개 예약")
-            logger.info(f"{'='*50}")
-
-            for i, b in enumerate(bookings[:5], 1):  # 처음 5개만 출력
-                logger.info(f"\n[{i}] {b.get('guest_name')}")
-                logger.info(f"    전화: {b.get('guest_phone')}")
-                logger.info(f"    체크인: {b.get('check_in_date')}")
-                logger.info(f"    객실: {b.get('room_type')}")
-                logger.info(f"    상태: {b.get('booking_status')}")
-
-    finally:
-        await crawler.close()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

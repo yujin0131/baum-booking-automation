@@ -2,6 +2,7 @@ import asyncio
 import random
 from datetime import datetime, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
@@ -10,7 +11,8 @@ from loguru import logger
 
 from config.settings import settings
 from src.models import SessionLocal, get_session
-from src.services.sms_sender import SMSSender
+# from src.services.sms_sender import SMSSender
+from src.services.kakao_sender import KakaoSender
 from src.services.booking_manager import BookingManager
 
 # 크롤링 간격 (분)
@@ -20,9 +22,10 @@ SCRAPE_MAX_INTERVAL = 13
 
 class BookingScheduler:
     def __init__(self):
-        self.scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
+        self.scheduler = AsyncIOScheduler(timezone=ZoneInfo("Asia/Seoul"))
         self.scraper = None
-        self.sms_sender: Optional[SMSSender] = None
+        # self.sms_sender: Optional[SMSSender] = None
+        self.kakao_sender: Optional[KakaoSender] = None
         self.test_mode = settings.use_test_mode
         logger.info(f"Scheduler init ({self.test_mode})")
 
@@ -40,9 +43,10 @@ class BookingScheduler:
                 self.scraper = SmartplaceCrawler(headless=True)
                 logger.info("Using SmartplaceCrawler")
 
-            self.sms_sender = SMSSender()
+            # self.sms_sender = SMSSender()
+            self.kakao_sender = KakaoSender()
 
-            logger.success("Scheduler resources initialized")
+            logger.success("Scheduler resources initialized (Kakao)")
 
         except Exception as e:
             logger.error(f"[Error] Scheduler init failed {e}")
@@ -113,10 +117,10 @@ class BookingScheduler:
         try:
             logger.info("Shutting down scheduler...")
 
-            if self.scheduler.running:
+            if self.scheduler and self.scheduler.running:
                 self.scheduler.shutdown(wait=True)
 
-            if self.scraper:
+            if self.scraper and hasattr(self.scraper, 'cleanup'):
                 await self.scraper.cleanup()
 
             logger.success("Scheduler stopped")
@@ -176,7 +180,8 @@ class BookingScheduler:
                         for b in bookings_with_requests:
                             alert_msg += f"\n- {b.guest_name}: {b.special_request}"
 
-                    await self.sms_sender.send_admin_alert(alert_msg)
+                    # await self.sms_sender.send_admin_alert(alert_msg)
+                    await self.kakao_sender.send_admin_alert(alert_msg)
 
                 logger.success(
                     f"Scrape job done - {new_bookings_count} new bookings processed"
@@ -212,10 +217,27 @@ class BookingScheduler:
 
                 async def send_single_sms(sms_log):
                     try:
-                        result = await self.sms_sender.send(
-                            recipient=sms_log.recipient_phone,
-                            message=sms_log.message_content,
-                        )
+                        # 기존 SMS 발송 (보관용)
+                        # result = await self.sms_sender.send(
+                        #     recipient=sms_log.recipient_phone,
+                        #     message=sms_log.message_content,
+                        # )
+
+                        # 카카오 알림톡 발송 (template_key가 있으면)
+                        if sms_log.template_key:
+                            import json
+                            template_vars = json.loads(sms_log.template_vars) if sms_log.template_vars else {}
+                            result = await self.kakao_sender.send_template(
+                                recipient=sms_log.recipient_phone,
+                                template_key=sms_log.template_key,
+                                variables=template_vars
+                            )
+                        else:
+                            # 친구톡으로 fallback (template_key 없는 경우)
+                            result = await self.kakao_sender.send_friendtalk(
+                                recipient=sms_log.recipient_phone,
+                                message=sms_log.message_content,
+                            )
 
                         if result.get("success"):
                             booking_manager.mark_sms_as_sent(sms_log, result)
@@ -256,7 +278,8 @@ class BookingScheduler:
                 failed_count = sum(1 for r in results if r[0] == "failed")
 
                 for sms_log in permanent_failures:
-                    await self.sms_sender.send_admin_alert(
+                    # await self.sms_sender.send_admin_alert(
+                    await self.kakao_sender.send_admin_alert(
                         f"SMS failed: {sms_log.recipient_phone} "
                         f"({sms_log.sms_type.value})"
                     )
@@ -319,7 +342,8 @@ class BookingScheduler:
 
                 logger.info(report)
 
-                await self.sms_sender.send_admin_alert(
+                # await self.sms_sender.send_admin_alert(
+                await self.kakao_sender.send_admin_alert(
                     f"Daily: {total_bookings} bookings, "
                     f"{sent_sms} SMS sent, {failed_sms} failed"
                 )
@@ -328,4 +352,5 @@ class BookingScheduler:
 
         except Exception as e:
             logger.error(f"[Error] Daily check failed {e}", exc_info=True)
-            await self.sms_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")
+            # await self.sms_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")
+            await self.kakao_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")

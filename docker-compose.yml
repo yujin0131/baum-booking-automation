@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  staytuned-automation:
+    build: .
+    container_name: staytuned-booking-automation
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # 데이터베이스 영구 저장
+      - ./booking_automation.db:/app/booking_automation.db
+      # 로그 파일 영구 저장
+      - ./logs:/app/logs
+      # 세션 파일 영구 저장
+      - ./naver_session.json:/app/naver_session.json
+      - ./crawl_status.json:/app/crawl_status.json
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Seoul
+    # 메모리 제한 (선택사항)
+    mem_limit: 1g
+    # CPU 제한 (선택사항)
+    cpus: 1.0

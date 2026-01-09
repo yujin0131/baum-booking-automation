@@ -1,0 +1,23 @@
+[Unit]
+Description=Staytuned Booking Automation Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/staytuned-booking-automation
+Environment="PATH=/home/ubuntu/staytuned-booking-automation/venv/bin"
+ExecStart=/home/ubuntu/staytuned-booking-automation/venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+# 로그 설정
+StandardOutput=append:/home/ubuntu/staytuned-booking-automation/logs/service.log
+StandardError=append:/home/ubuntu/staytuned-booking-automation/logs/service-error.log
+
+# 리소스 제한
+MemoryLimit=1G
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

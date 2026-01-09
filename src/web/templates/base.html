@@ -10,6 +10,12 @@
         .sidebar {
             min-height: 100vh;
             background-color: #f8f9fa;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        .sidebar .nav-link {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
         }
         .nav-link.active {
             background-color: #0d6efd;
@@ -25,11 +31,11 @@
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <nav class="col-md-2 d-md-block sidebar">
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar" style="max-width: 200px;">
                 <div class="position-sticky pt-3">
-                    <h5 class="px-3 mb-3">
+                    <h6 class="mb-3">
                         <i class="bi bi-calendar-check"></i> 예약 시스템
-                    </h5>
+                    </h6>
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">
@@ -51,7 +57,7 @@
             </nav>
 
             <!-- Main content -->
-            <main class="col-md-10 ms-sm-auto px-md-4">
+            <main class="col ms-sm-auto px-md-4">
                 <div class="pt-3 pb-2 mb-3">
                     {% block content %}{% endblock %}
                 </div>

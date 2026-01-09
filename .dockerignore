@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+staytuned_venv/
+venv/
+env/
+ENV/
+
+# 데이터베이스
+*.db
+*.sqlite
+*.sqlite3
+
+# 세션/상태 파일
+naver_session.json
+crawl_status.json
+
+# 로그
+logs/
+*.log
+
+# HTML 테스트 파일
+*.html
+
+# 환경 설정
+.env
+.env.local
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# 테스트
+.pytest_cache/
+.coverage
+
+# 문서
+README.md
+docs/

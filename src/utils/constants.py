@@ -9,10 +9,9 @@ def _get_config():
         _config = config
     return _config
 
-SMS_TYPE_WELCOME = "welcome"
 SMS_TYPE_CHECK_IN_GUIDE = "check_in_guide"
 SMS_TYPE_FACILITY_INFO = "facility_info"
-SMS_TYPES = [SMS_TYPE_WELCOME, SMS_TYPE_CHECK_IN_GUIDE, SMS_TYPE_FACILITY_INFO]
+SMS_TYPES = [SMS_TYPE_CHECK_IN_GUIDE, SMS_TYPE_FACILITY_INFO]
 
 SMS_STATUS_PENDING = "pending"
 SMS_STATUS_SCHEDULED = "scheduled"

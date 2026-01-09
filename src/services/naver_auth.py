@@ -205,8 +205,10 @@ class NaverAuth:
             await self.init_browser()
 
         try:
-            await self.page.goto(self.NAVER_LOGIN_URL, wait_until="networkidle")
+            logger.info(f"로그인 페이지 이동 중: {self.NAVER_LOGIN_URL}")
+            await self.page.goto(self.NAVER_LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
             await self._random_delay(1000, 2000)
+            logger.info("로그인 페이지 로드 완료")
             await self._random_mouse_movement(self.page)
 
             # JavaScript로 직접 값 설정 (봇 탐지 우회)
@@ -288,7 +290,8 @@ class NaverAuth:
             return False
 
         try:
-            await self.page.goto("https://www.naver.com", wait_until="networkidle")
+            await self.page.goto("https://www.naver.com", wait_until="domcontentloaded", timeout=60000)
+            await self._random_delay(1000, 2000)
             login_area = await self.page.query_selector(".MyView-module__link_login___HpHMW")
             return login_area is None
         except Exception:
@@ -300,33 +303,3 @@ class NaverAuth:
         if hasattr(self, '_playwright') and self._playwright:
             await self._playwright.stop()
         logger.info("브라우저가 종료되었습니다.")
-
-async def main():
-    # OTP 비밀키 (네이버에서 OTP 등록시 받은 키)
-    otp_secret = None  # 예: "ABCD1234EFGH5678"
-
-    auth = NaverAuth(headless=False, otp_secret=otp_secret)
-
-    try:
-        await auth.init_browser()
-
-        username = "staytuned0901"
-        password = "staytuned0916"
-
-        success = await auth.login(username, password)
-
-        if success:
-            # 세션 저장 (다음에 재사용 가능)
-
-            await auth.save_session("naver_session.json")
-
-            # 쿠키 확인
-            cookies = await auth.get_cookies()
-            logger.info(f"쿠키 개수: {len(cookies)}")
-
-    finally:
-        await auth.close()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

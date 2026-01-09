@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, date
 from typing import Optional, Union
 import pytz
 from zoneinfo import ZoneInfo
@@ -39,8 +39,12 @@ def get_time_from_string(time_string: str) -> Optional[time]:
     except (ValueError, AttributeError):
         return None
 
-def combine_date_and_time(date: datetime, time_obj: time) -> datetime:
-    combined = datetime.combine(date.date(), time_obj)
+def combine_date_and_time(date_obj: Union[datetime, date], time_obj: time) -> datetime:
+    if isinstance(date_obj, datetime):
+        date_only = date_obj.date()
+    else:
+        date_only = date_obj
+    combined = datetime.combine(date_only, time_obj)
     return combined.replace(tzinfo=get_kst_timezone())
 
 def is_same_day(dt1: datetime, dt2: datetime) -> bool:

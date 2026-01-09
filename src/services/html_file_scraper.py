@@ -81,18 +81,28 @@ class HtmlFileScraper:
             room_type = self._get_text(row, "[class*='BookingListView__host']")
             booking_status = self._get_text(row, "[class*='BookingListView__state']")
             special_request_raw = self._get_text(row, "[class*='BookingListView__comment']")
+            option_text = self._get_text(row, "[class*='BookingListView__option']")
             payment_status = self._get_text(row, "[class*='BookingListView__payment-state']")
             total_price = self._get_text(row, "[class*='BookingListView__total-price']")
+            order_date_text = self._get_text(row, "[class*='BookingListView__order-date']")
 
             guest_count = self._parse_guest_count(guest_count_text)
             room_number = self._extract_room_number(room_type)
             check_in_date, check_out_date = self._parse_book_date(book_date)
+            booking_date = self._parse_order_date(order_date_text)
             room_password = get_room_password(room_number) if room_number else "0000"
             naver_booking_id = booking_number or f"NAVER_{int(datetime.now().timestamp())}"
 
             special_request = None
             if special_request_raw and special_request_raw.strip() not in ("-", "없음", ""):
                 special_request = special_request_raw.strip()
+
+            # 애견 옵션 감지
+            pet_option = False
+            if option_text and option_text.strip():
+                option_lower = option_text.lower()
+                pet_keywords = ["애견", "반려", "강아지", "pet", "dog"]
+                pet_option = any(keyword in option_lower for keyword in pet_keywords)
 
             return {
                 "naver_booking_id": naver_booking_id,
@@ -101,10 +111,11 @@ class HtmlFileScraper:
                 "guest_count": guest_count,
                 "check_in_date": check_in_date,
                 "check_out_date": check_out_date,
-                "booking_date": now_kst(),
+                "booking_date": booking_date,
                 "room_type": room_type or "미확인",
                 "room_number": room_number,
                 "special_request": special_request,
+                "pet_option": pet_option,
                 "room_password": room_password,
                 "booking_status": booking_status,
                 "payment_status": payment_status,
@@ -176,13 +187,47 @@ class HtmlFileScraper:
                 out_month = int(match.group(5))
                 out_day = int(match.group(6))
 
-                check_in = datetime(in_year, in_month, in_day, 15, 0)
-                check_out = datetime(out_year, out_month, out_day, 11, 0)
+                check_in = datetime(in_year, in_month, in_day).date()
+                check_out = datetime(out_year, out_month, out_day).date()
 
                 return check_in, check_out
 
         except Exception as e:
             logger.warning(f"[Warn] Date parse failed {book_date} - {e}")
 
-        check_in = now_kst()
+        check_in = now_kst().date()
         return check_in, check_in + timedelta(days=1)
+
+    def _parse_order_date(self, order_date_text: Optional[str]) -> datetime:
+        """신청일시 파싱: '25. 12. 21.(일) 오전 9:59' 형식"""
+        if not order_date_text:
+            return now_kst()
+
+        try:
+            # 정규식: '25. 12. 21.(일) 오전 9:59' or '25. 12. 21.(일) 오후 2:30'
+            match = re.search(
+                r'(\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\([^\)]+\)\s*(오전|오후)\s*(\d{1,2}):(\d{2})',
+                order_date_text
+            )
+            if match:
+                year = 2000 + int(match.group(1))
+                month = int(match.group(2))
+                day = int(match.group(3))
+                am_pm = match.group(4)
+                hour = int(match.group(5))
+                minute = int(match.group(6))
+
+                # 오후 처리
+                if am_pm == "오후" and hour != 12:
+                    hour += 12
+                elif am_pm == "오전" and hour == 12:
+                    hour = 0
+
+                # KST timezone 적용
+                from src.utils.datetime_utils import get_kst_timezone
+                return datetime(year, month, day, hour, minute, tzinfo=get_kst_timezone())
+
+        except Exception as e:
+            logger.warning(f"[Warn] Order date parse failed {order_date_text} - {e}")
+
+        return now_kst()

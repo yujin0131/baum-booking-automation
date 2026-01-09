@@ -44,7 +44,7 @@ class Application:
     async def startup(self):
         try:
             logger.info("=" * 50)
-            logger.info("Starting BAUM Automation System")
+            logger.info("Starting staytuned Automation System")
             logger.info("=" * 50)
 
             logger.info("Initializing database...")

@@ -123,9 +123,7 @@
                     {% for sms in sms_logs %}
                     <tr>
                         <td>
-                            {% if sms.sms_type.value == 'welcome' %}
-                                <span class="badge bg-primary">환영</span>
-                            {% elif sms.sms_type.value == 'check_in_guide' %}
+                            {% if sms.sms_type.value == 'check_in_guide' %}
                                 <span class="badge bg-info">입실안내</span>
                             {% else %}
                                 <span class="badge bg-secondary">시설안내</span>

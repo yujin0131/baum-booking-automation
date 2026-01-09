@@ -1,7 +1,7 @@
-# Baum 예약 자동화 시스템
+# Staytuned 예약 자동화 시스템
 
 ```bash
-python3 -m venv baum_venv && source baum_venv/bin/activate
+python3 -m venv staytuned_venv && source staytuned_venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
 
@@ -66,10 +66,10 @@ NAVER_EMAIL=
 NAVER_PASSWORD=
 NAVER_PLACE_URL=
 
-# SMS API (알리고)
-SMS_API_KEY=
-SMS_USER_ID=
-SMS_SENDER=
+# SMS API (솔라피)
+SMS_API_KEY=         # 솔라피 콘솔에서 발급받은 API Key
+SMS_API_SECRET=      # 솔라피 콘솔에서 발급받은 API Secret
+SMS_SENDER=          # 발신번호 (사전 등록 필요)
 
 # 관리자
 ADMIN_PHONE=
@@ -82,11 +82,19 @@ CHECK_IN_TIME=15:00
 USE_TEST_MODE=false
 ```
 
+### 솔라피 설정 방법
+
+1. [솔라피 콘솔](https://console.solapi.com) 회원가입 및 로그인
+2. **API Key 발급**: 설정 > API Key > 새로운 API Key 생성
+3. **발신번호 등록**: 설정 > 발신번호 > 발신번호 등록 (본인 인증 필요)
+4. **충전**: 설정 > 충전 (SMS: 약 9원/건, LMS: 약 30원/건)
+5. `.env` 파일에 API Key, API Secret, 발신번호 입력
+
 ## 테스트 모드
 
 `.env`에서 `USE_TEST_MODE=true` 설정 시
 - HTML 파일(`sample_booking_page.html`)로 오프라인 테스트
-- SMS는 실제 발송 없이 API 연동만 테스트 (`testmode_yn=Y`)
+- SMS는 실제 발송 없이 로그만 출력 (API 호출 없음)
 
 ## 대시보드
 

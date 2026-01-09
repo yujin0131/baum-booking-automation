@@ -30,16 +30,19 @@ class AccommodationConfig:
 
 @dataclass
 class SMSTemplatesConfig:
-    welcome: str
-    check_in_guide: str
+    check_in_guide_normal: str
+    check_in_guide_female_dorm: str
+    check_in_guide_male_dorm: str
     facility_info: str
-    special_request_suffix: str
+    pet_info: str
 
     def get_template(self, template_type: str) -> str:
         templates = {
-            "welcome": self.welcome,
-            "check_in_guide": self.check_in_guide,
+            "check_in_guide_normal": self.check_in_guide_normal,
+            "check_in_guide_female_dorm": self.check_in_guide_female_dorm,
+            "check_in_guide_male_dorm": self.check_in_guide_male_dorm,
             "facility_info": self.facility_info,
+            "pet_info": self.pet_info,
         }
         return templates.get(template_type, "")
 
@@ -141,10 +144,11 @@ class ConfigManager:
         data = self._load_yaml(SMS_TEMPLATES_FILE)
 
         return SMSTemplatesConfig(
-            welcome=data.get("welcome", "").strip(),
-            check_in_guide=data.get("check_in_guide", "").strip(),
+            check_in_guide_normal=data.get("check_in_guide_normal", "").strip(),
+            check_in_guide_female_dorm=data.get("check_in_guide_female_dorm", "").strip(),
+            check_in_guide_male_dorm=data.get("check_in_guide_male_dorm", "").strip(),
             facility_info=data.get("facility_info", "").strip(),
-            special_request_suffix=data.get("special_request_suffix", "").strip(),
+            pet_info=data.get("pet_info", "").strip(),
         )
 
     def _load_crawling(self) -> CrawlingConfig:
