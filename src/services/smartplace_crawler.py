@@ -85,7 +85,7 @@ class SmartplaceCrawler:
                 logger.error("로그인 실패")
                 return None, False
 
-            url = target_url or self.SMARTPLACE_URL
+            url = target_url or self.booking_url
             logger.info(f"페이지 이동: {url}")
 
             await self.auth.page.goto(url, wait_until="domcontentloaded", timeout=60000)

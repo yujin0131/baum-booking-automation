@@ -14,9 +14,6 @@ templates:
     description: "일반 객실 입실 시 발송하는 안내 메시지"
     variables:
       - guest_name
-      - check_in_date
-      - check_in_time
-      - check_out_time
       - room_number
       - room_password
     fallback_sms: "check_in_guide_normal"  # sms_templates.yaml의 키
@@ -33,8 +30,6 @@ templates:
     description: "여성 도미토리 입실 시 발송하는 안내 메시지"
     variables:
       - guest_name
-      - check_in_date
-      - check_in_time
       - check_out_time
       - room_password
     fallback_sms: "check_in_guide_female_dorm"

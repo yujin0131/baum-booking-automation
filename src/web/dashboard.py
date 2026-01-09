@@ -8,7 +8,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 
 from src.models import Booking, SMSLog, get_session
-from src.models.booking import SMSStatus, BookingStatus
+from src.models.booking import SMSStatus, BookingStatus, KakaoTemplate
 from src.services.booking_manager import BookingManager
 from src.services.sms_sender import SMSSender
 from src.utils.datetime_utils import now_kst
@@ -205,3 +205,91 @@ async def manual_crawl():
     except Exception as e:
         logger.error(f"[Manual Crawl Error] {e}")
         return {"success": False, "error": str(e)}
+
+
+# ============================================================================
+# 카카오 템플릿 관리
+# ============================================================================
+
+@app.get("/kakao-templates", response_class=HTMLResponse)
+async def kakao_templates_page(request: Request):
+    """카카오 템플릿 관리 페이지"""
+    with get_session() as db:
+        template_list = db.query(KakaoTemplate).order_by(KakaoTemplate.id).all()
+
+        return templates.TemplateResponse("kakao_templates.html", {
+            "request": request,
+            "templates": template_list,
+        })
+
+
+@app.get("/api/kakao-templates")
+async def get_kakao_templates():
+    """카카오 템플릿 목록 조회 API"""
+    with get_session() as db:
+        templates = db.query(KakaoTemplate).order_by(KakaoTemplate.id).all()
+        return {"success": True, "templates": [t.to_dict() for t in templates]}
+
+
+@app.post("/api/kakao-templates")
+async def create_kakao_template(request: Request):
+    """카카오 템플릿 추가 API"""
+    import json
+
+    data = await request.json()
+
+    # 필수 필드 검증
+    required_fields = ["template_key", "template_code", "name"]
+    for field in required_fields:
+        if field not in data:
+            return {"success": False, "error": f"Missing required field: {field}"}
+
+    with get_session() as db:
+        # 중복 확인
+        existing = db.query(KakaoTemplate).filter_by(template_key=data["template_key"]).first()
+        if existing:
+            return {"success": False, "error": "Template key already exists"}
+
+        # 새 템플릿 생성
+        template = KakaoTemplate(
+            template_key=data["template_key"],
+            template_code=data["template_code"],
+            name=data["name"],
+            description=data.get("description", ""),
+            variables=json.dumps(data.get("variables", [])),
+            buttons=json.dumps(data.get("buttons", [])),
+            is_active=data.get("is_active", True)
+        )
+
+        db.add(template)
+        db.commit()
+        db.refresh(template)
+
+        return {"success": True, "template": template.to_dict()}
+
+
+@app.post("/api/kakao-templates/{template_id}")
+async def update_kakao_template(template_id: int, request: Request):
+    """카카오 템플릿 수정 API"""
+    from fastapi import Body
+
+    data = await request.json()
+
+    with get_session() as db:
+        template = db.query(KakaoTemplate).filter_by(id=template_id).first()
+        if not template:
+            return {"success": False, "error": "Template not found"}
+
+        # 수정 가능한 필드만 업데이트
+        if "template_code" in data:
+            template.template_code = data["template_code"]
+        if "name" in data:
+            template.name = data["name"]
+        if "description" in data:
+            template.description = data["description"]
+        if "is_active" in data:
+            template.is_active = data["is_active"]
+
+        db.commit()
+
+        return {"success": True, "template": template.to_dict()}
