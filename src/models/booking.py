@@ -90,7 +90,6 @@ class Booking(Base):
 
     status = Column(SQLEnum(BookingStatus), default=BookingStatus.NEW, nullable=False, index=True, comment="예약 상태")
     is_immediate_booking = Column(Boolean, default=False, comment="당일 예약 여부")
-    sms_sent = Column(Boolean, default=False, comment="모든 SMS 발송 완료 여부")
 
     created_at = Column(DateTime(timezone=True), default=now_kst, nullable=False, comment="레코드 생성 시간")
     updated_at = Column(DateTime(timezone=True), default=now_kst, onupdate=now_kst, nullable=False, comment="레코드 수정 시간")
@@ -99,6 +98,55 @@ class Booking(Base):
 
     def __repr__(self):
         return f"<Booking(id={self.id}, guest={self.guest_name}, check_in={self.check_in_date}, status={self.status})>"
+
+    def get_sms_status(self, sms_type: SMSType) -> dict:
+        """특정 SMS 타입의 발송 상태 조회"""
+        for log in self.sms_logs:
+            if log.sms_type == sms_type:
+                return {
+                    "status": log.status.value if isinstance(log.status, enum.Enum) else log.status,
+                    "sent_time": log.sent_time,
+                    "scheduled_time": log.scheduled_time,
+                }
+        return {"status": None, "sent_time": None, "scheduled_time": None}
+
+    @property
+    def all_sms_sent(self) -> bool:
+        """모든 SMS가 발송 완료되었는지 확인"""
+        if not self.sms_logs:
+            return False
+        return all(log.status == SMSStatus.SENT for log in self.sms_logs)
+
+    @property
+    def sms_status_summary(self) -> dict:
+        """SMS 타입별 발송 상태 요약"""
+        summary = {}
+        for log in self.sms_logs:
+            type_key = log.sms_type.value if isinstance(log.sms_type, enum.Enum) else log.sms_type
+            summary[type_key] = log.status.value if isinstance(log.status, enum.Enum) else log.status
+        return summary
+
+    @property
+    def display_status(self) -> tuple[str, str]:
+        """목록 페이지용 표시 상태 (label, color)"""
+        from src.utils.datetime_utils import now_kst
+
+        # 취소된 예약
+        if self.status == BookingStatus.CANCELLED:
+            return ("취소", "danger")
+
+        today = now_kst().date()
+
+        # 예약: 미래 체크인 (오늘이 아닌 경우) - 완료보다 먼저 체크
+        if self.check_in_date and self.check_in_date > today:
+            return ("예약", "primary")
+
+        # 완료: 오늘/과거 체크인이고 SMS 발송됨 또는 체크인 완료
+        if self.status in [BookingStatus.SMS_SENT, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT]:
+            return ("완료", "success")
+
+        # 신규: 오늘 체크인인데 아직 SMS 안보냄
+        return ("신규", "info")
 
     def to_dict(self):
         return {
@@ -117,7 +165,8 @@ class Booking(Base):
             "room_password": self.room_password,
             "status": self.status.value if isinstance(self.status, enum.Enum) else self.status,
             "is_immediate_booking": self.is_immediate_booking,
-            "sms_sent": self.sms_sent,
+            "sms_status": self.sms_status_summary,
+            "all_sms_sent": self.all_sms_sent,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -136,6 +185,7 @@ class SMSLog(Base):
 
     # 카카오 알림톡 템플릿 정보
     template_key = Column(String(100), nullable=True, comment="카카오 알림톡 템플릿 키")
+    template_code = Column(String(100), nullable=True, comment="Solapi 템플릿 코드 (발송 시점 기록)")
     template_vars = Column(Text, nullable=True, comment="템플릿 변수 (JSON)")
 
     status = Column(SQLEnum(SMSStatus), default=SMSStatus.PENDING, nullable=False, index=True, comment="상태")
@@ -164,6 +214,7 @@ class SMSLog(Base):
             "recipient_phone": self.recipient_phone,
             "message_content": self.message_content,
             "template_key": self.template_key,
+            "template_code": self.template_code,
             "template_vars": self.template_vars,
             "status": self.status.value if isinstance(self.status, enum.Enum) else self.status,
             "scheduled_time": self.scheduled_time.isoformat() if self.scheduled_time else None,

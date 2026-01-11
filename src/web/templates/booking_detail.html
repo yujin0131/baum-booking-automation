@@ -100,10 +100,10 @@
     </div>
 </div>
 
-<!-- SMS Logs -->
+<!-- 카카오 알림톡 발송 내역 -->
 <div class="card">
     <div class="card-header">
-        <h5 class="mb-0">SMS 발송 내역</h5>
+        <h5 class="mb-0"><i class="bi bi-chat-square-text"></i> 카카오 알림톡 발송 내역</h5>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -155,8 +155,29 @@
                     <tr>
                         <td colspan="7">
                             <details>
-                                <summary class="text-muted" style="cursor: pointer;">문자 내용 보기</summary>
-                                <pre class="mt-2 p-2 bg-light border rounded">{{ sms.message_content }}</pre>
+                                <summary class="text-muted" style="cursor: pointer;">템플릿 정보 보기</summary>
+                                <div class="mt-2 p-3 bg-light border rounded">
+                                    <table class="table table-sm table-borderless mb-0">
+                                        <tr>
+                                            <th width="120">템플릿 키:</th>
+                                            <td><code>{{ sms.template_key or '-' }}</code></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Solapi 코드:</th>
+                                            <td><code>{{ sms.template_code or '-' }}</code></td>
+                                        </tr>
+                                        <tr>
+                                            <th>변수:</th>
+                                            <td>
+                                                {% if sms.template_vars %}
+                                                <pre class="mb-0" style="white-space: pre-wrap;">{{ sms.template_vars }}</pre>
+                                                {% else %}
+                                                <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
                             </details>
                         </td>
                     </tr>

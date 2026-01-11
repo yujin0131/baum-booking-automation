@@ -2,7 +2,7 @@
 Room utility functions
 객실 관련 유틸리티 함수
 """
-from .constants import ROOM_NUMBER_PASSWORDS, DEFAULT_ROOM_PASSWORD
+from .constants import get_room_password
 
 
 def get_room_password_for_room(room_number: str) -> str:
@@ -15,4 +15,4 @@ def get_room_password_for_room(room_number: str) -> str:
     Returns:
         str: Entry password for the room (or default if not found)
     """
-    return ROOM_NUMBER_PASSWORDS.get(room_number, DEFAULT_ROOM_PASSWORD)
+    return get_room_password(room_number)

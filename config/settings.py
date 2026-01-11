@@ -15,14 +15,15 @@ class Settings(BaseSettings):
     naver_password: str = Field(..., description="Naver account password")
     naver_place_url: str = Field(..., description="Naver Place management URL")
 
-    sms_api_key: str = Field(..., description="Solapi API key")
-    sms_api_secret: str = Field(..., description="Solapi API secret")
-    sms_sender: str = Field(..., description="SMS sender phone number")
+    sms_api_key: str = Field(default="", description="Solapi API key")
+    sms_api_secret: str = Field(default="", description="Solapi API secret")
+    sms_sender: str = Field(default="", description="SMS sender phone number")
 
-    # Kakao alimtalk/friendtalk settings
-    kakao_api_key: str = Field(default="", description="Kakao API key")
-    kakao_sender_key: str = Field(default="", description="Kakao sender key")
-    kakao_channel_id: str = Field(default="", description="Kakao channel ID")
+    # Solapi 카카오 알림톡 설정
+    kakao_pf_id: str = Field(default="", description="Solapi Kakao Profile ID (pfId)")
+    kakao_api_key: str = Field(default="", description="(미사용) Kakao API key")
+    kakao_sender_key: str = Field(default="", description="(미사용) Kakao sender key")
+    kakao_channel_id: str = Field(default="", description="(미사용) Kakao channel ID")
 
     admin_phone: str = Field(..., description="Admin phone for alerts")
 

@@ -40,7 +40,7 @@ class BookingScheduler:
             else:
                 # SmartplaceCrawler 사용 (봇 탐지 우회 로그인)
                 from src.services.smartplace_crawler import SmartplaceCrawler
-                self.scraper = SmartplaceCrawler(headless=True)
+                self.scraper = SmartplaceCrawler(headless=False)
                 logger.info("Using SmartplaceCrawler")
 
             # self.sms_sender = SMSSender()
@@ -88,14 +88,14 @@ class BookingScheduler:
             )
 
             self.scheduler.add_job(
-                self.send_pending_sms,
+                self.send_pending_kakao,
                 trigger=IntervalTrigger(minutes=1),
-                id="send_sms",
-                name="Send SMS",
+                id="send_kakao",
+                name="Send Kakao",
                 replace_existing=True,
                 max_instances=1,
             )
-            logger.info("Job registered: send SMS (every 1min)")
+            logger.info("Job registered: send Kakao (every 1min)")
 
             self.scheduler.add_job(
                 self.daily_health_check,
@@ -197,7 +197,7 @@ class BookingScheduler:
             # 다음 크롤링 랜덤 간격으로 스케줄링
             self._schedule_next_scrape()
 
-    async def send_pending_sms(self):
+    async def send_pending_kakao(self):
         from src.utils.constants import SMS_BATCH_SIZE, SMS_BATCH_DELAY_SECONDS
 
         try:
@@ -207,21 +207,33 @@ class BookingScheduler:
                 pending_logs = booking_manager.get_pending_sms_logs()
 
                 if not pending_logs:
-                    logger.debug("No pending SMS")
+                    logger.debug("No pending Kakao messages")
                     return
 
-                logger.info(f"Pending SMS: {len(pending_logs)}")
+                logger.info(f"Pending Kakao: {len(pending_logs)}")
 
                 results = []
                 permanent_failures = []
 
                 async def send_single_sms(sms_log):
                     try:
-                        # 기존 SMS 발송 (보관용)
-                        # result = await self.sms_sender.send(
-                        #     recipient=sms_log.recipient_phone,
-                        #     message=sms_log.message_content,
-                        # )
+                        # 발송 전 상태 다시 확인 (이중 발송 방지)
+                        from src.models.booking import SMSStatus, SMSLog
+                        fresh_log = db.query(SMSLog).filter(SMSLog.id == sms_log.id).first()
+                        if not fresh_log:
+                            logger.warning(f"SMS {sms_log.id} not found, skipping")
+                            return ("skipped", sms_log)
+                        if fresh_log.status == SMSStatus.SENT:
+                            logger.debug(f"SMS {sms_log.id} already sent, skipping")
+                            return ("skipped", sms_log)
+                        if fresh_log.status == SMSStatus.FAILED:
+                            if not fresh_log.can_retry:
+                                logger.debug(f"SMS {sms_log.id} failed and no retry left, skipping")
+                                return ("skipped", sms_log)
+                            # retry 가능하면 계속 진행
+                        if fresh_log.status not in [SMSStatus.SCHEDULED, SMSStatus.FAILED]:
+                            logger.debug(f"SMS {sms_log.id} status is {fresh_log.status}, skipping")
+                            return ("skipped", sms_log)
 
                         # 카카오 알림톡 발송 (template_key가 있으면)
                         if sms_log.template_key:
@@ -285,11 +297,11 @@ class BookingScheduler:
                     )
 
                 logger.success(
-                    f"SMS job done - sent: {sent_count}, failed: {failed_count}"
+                    f"Kakao job done - sent: {sent_count}, failed: {failed_count}"
                 )
 
         except Exception as e:
-            logger.error(f"[Error] SMS job failed {e}", exc_info=True)
+            logger.error(f"[Error] Kakao job failed {e}", exc_info=True)
 
     async def daily_health_check(self):
         try:

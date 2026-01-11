@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
 from loguru import logger
 
-from src.models.booking import Booking, SMSLog, BookingStatus, SMSStatus, SMSType
+from src.models.booking import Booking, SMSLog, BookingStatus, SMSStatus, SMSType, KakaoTemplate
 from src.utils.datetime_utils import (
     now_kst,
     to_kst,
@@ -16,11 +16,6 @@ from src.utils.datetime_utils import (
 from src.utils.constants import (
     SMS_TYPE_CHECK_IN_GUIDE,
     SMS_TYPE_FACILITY_INFO,
-    CHECK_OUT_DEFAULT_TIME,
-    get_wifi_ssid,
-    get_wifi_password,
-    get_address,
-    get_emergency_contact,
 )
 from config.settings import settings
 
@@ -44,6 +39,18 @@ class BookingManager:
                 "pet_info": config.sms_templates.pet_info,
             }
         return self._templates
+
+    def _get_kakao_template_code(self, template_key: str) -> Optional[str]:
+        """템플릿 키로 Solapi 템플릿 코드 조회"""
+        try:
+            template = self.db.query(KakaoTemplate).filter(
+                KakaoTemplate.template_key == template_key,
+                KakaoTemplate.is_active == True
+            ).first()
+            return template.template_code if template else None
+        except Exception as e:
+            logger.warning(f"Failed to get template_code for {template_key}: {e}")
+            return None
 
     def create_or_update_booking(self, booking_data: Dict) -> Optional[Booking]:
         try:
@@ -109,7 +116,6 @@ class BookingManager:
                 room_password=booking_data.get("room_password", "1234"),
                 status=initial_status,
                 is_immediate_booking=is_immediate,
-                sms_sent=False,
             )
 
             self.db.add(booking)
@@ -166,21 +172,8 @@ class BookingManager:
                 guide_time = guide_time_scheduled
                 facility_time = guide_time + timedelta(minutes=1)
 
-            template_vars = {
-                "guest_name": booking.guest_name,
-                "check_in_date": booking.check_in_date.strftime("%Y년 %m월 %d일"),  # 날짜만 표시
-                "check_in_time": check_in_time_str,
-                "check_out_time": CHECK_OUT_DEFAULT_TIME,
-                "room_type": booking.room_type,
-                "room_number": booking.room_number or "확인 후 안내",
-                "room_info": f"{booking.room_type} ({booking.room_number or '객실번호 별도 안내'})",
-                "room_password": booking.room_password,
-                "address": get_address(),
-                "wifi_ssid": get_wifi_ssid(),
-                "wifi_password": get_wifi_password(),
-                "emergency_contact": get_emergency_contact(),
-                "special_request": booking.special_request or "",
-            }
+            # 테스트용: guest_name에 원래 수신자 번호 추가
+            test_guest_name = f"{booking.guest_name} ({booking.guest_phone})"
 
             # 객실별 체크인 안내 템플릿 선택
             templates = self._get_sms_templates()
@@ -192,6 +185,25 @@ class BookingManager:
             else:
                 checkin_template_key = "check_in_guide_normal"
 
+            # 템플릿별 실제 필요한 변수만 정의
+            TEMPLATE_VARS = {
+                "check_in_guide_normal": {
+                    "guest_name": test_guest_name,
+                    "room_number": booking.room_number or "확인 후 안내",
+                    "room_password": booking.room_password,
+                },
+                "check_in_guide_female_dorm": {
+                    "guest_name": test_guest_name,
+                    "room_password": booking.room_password,
+                },
+                "check_in_guide_male_dorm": {
+                    "guest_name": test_guest_name,
+                    "room_password": booking.room_password,
+                },
+                "facility_info": None,
+                "pet_info": None,
+            }
+
             # SMS 스케줄: CHECK_IN_GUIDE + FACILITY_INFO
             sms_schedule = {
                 SMS_TYPE_CHECK_IN_GUIDE: (guide_time, checkin_template_key),
@@ -201,16 +213,22 @@ class BookingManager:
             # CHECK_IN_GUIDE + FACILITY_INFO SMS 생성
             for sms_type, (sms_scheduled_time, template_key) in sms_schedule.items():
                 template = templates.get(template_key, "")
+                template_vars = TEMPLATE_VARS.get(template_key)
 
                 try:
-                    message = template.format(**template_vars)
+                    if template_vars:
+                        message = template.format(**template_vars)
+                    else:
+                        message = template
                 except KeyError as e:
                     logger.warning(f"[Warn] {e}, default template")
                     message = template
 
-                # template_vars를 JSON으로 변환
-                import json
-                template_vars_json = json.dumps(template_vars, ensure_ascii=False)
+                # 템플릿별 변수 저장 (없으면 null)
+                template_vars_json = json.dumps(template_vars, ensure_ascii=False) if template_vars else None
+
+                # Solapi 템플릿 코드 조회
+                template_code = self._get_kakao_template_code(template_key)
 
                 sms_log = SMSLog(
                     booking_id=booking.id,
@@ -218,6 +236,7 @@ class BookingManager:
                     recipient_phone=booking.guest_phone,
                     message_content=message,
                     template_key=template_key,  # 템플릿 키 저장
+                    template_code=template_code,  # Solapi 템플릿 코드 저장
                     template_vars=template_vars_json,  # 템플릿 변수 저장 (JSON)
                     status=SMSStatus.SCHEDULED,  # 스케줄링된 상태로 생성
                     scheduled_time=sms_scheduled_time,
@@ -233,27 +252,24 @@ class BookingManager:
             if booking.room_number == "104" and booking.pet_option:
                 pet_template = templates.get("pet_info", "")
                 try:
-                    pet_message = pet_template.format(**template_vars)
+                    pet_message = pet_template.format(**kakao_vars)
                 except KeyError as e:
                     logger.warning(f"[Warn] {e}, default pet template")
                     pet_message = pet_template
 
-                # 애견 안내 SMS는 체크인 안내와 같은 시간에 발송 (2분 후)
                 pet_time = guide_time + timedelta(minutes=2) if not is_immediate_send else now + timedelta(minutes=2)
-
-                import json
-                pet_vars_json = json.dumps(template_vars, ensure_ascii=False)
+                pet_template_code = self._get_kakao_template_code("pet_info")
 
                 pet_sms_log = SMSLog(
                     booking_id=booking.id,
-                    sms_type=SMSType.FACILITY_INFO,  # 별도 타입이 없으므로 FACILITY_INFO로 분류
+                    sms_type=SMSType.FACILITY_INFO,
                     recipient_phone=booking.guest_phone,
                     message_content=pet_message,
-                    template_key="pet_info",  # 템플릿 키 저장
-                    template_vars=pet_vars_json,  # 템플릿 변수 저장
-                    status=SMSStatus.SCHEDULED,  # 스케줄링된 상태로 생성
+                    template_key="pet_info",
+                    template_code=pet_template_code,
+                    template_vars=None,  # pet_info는 변수 없음
+                    status=SMSStatus.SCHEDULED,
                     scheduled_time=pet_time,
-                    sent_time=None,
                     retry_count=0,
                     max_retries=settings.max_retries,
                 )
@@ -315,13 +331,9 @@ class BookingManager:
 
                 # 해당 예약의 모든 SMS가 발송 완료되었는지 확인
                 booking = sms_log.booking
-                if booking:
-                    all_sms_logs = self.db.query(SMSLog).filter(SMSLog.booking_id == booking.id).all()
-                    all_sent = all(log.status == SMSStatus.SENT for log in all_sms_logs)
-
-                    if all_sent and booking.status == BookingStatus.NEW:
-                        booking.status = BookingStatus.SMS_SENT
-                        logger.info(f"[Status Update] {booking.guest_name} 예약 상태: NEW → SMS_SENT")
+                if booking and booking.all_sms_sent and booking.status == BookingStatus.NEW:
+                    booking.status = BookingStatus.SMS_SENT
+                    logger.info(f"[Status Update] {booking.guest_name} 예약 상태: NEW → SMS_SENT")
             else:
                 sms_log.status = SMSStatus.FAILED
                 sms_log.error_message = str(data) if data else "Unknown error"

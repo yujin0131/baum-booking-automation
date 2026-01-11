@@ -9,14 +9,14 @@
 templates:
   # 일반 객실 입실 안내
   check_in_guide_normal:
-    template_code: "staytuned_checkin_normal_001"  # TODO: 실제 승인받은 코드로 변경
+    template_code: "KA01TP260109052806134T8kHzJl93s9"
     name: "입실 안내 (일반 객실)"
     description: "일반 객실 입실 시 발송하는 안내 메시지"
     variables:
       - guest_name
       - room_number
       - room_password
-    fallback_sms: "check_in_guide_normal"  # sms_templates.yaml의 키
+    fallback_sms: "check_in_guide_normal"
     buttons:
       - type: "WL"
         name: "숙소 안내 보기"
@@ -25,12 +25,11 @@ templates:
 
   # 여성 도미토리 입실 안내
   check_in_guide_female_dorm:
-    template_code: "staytuned_checkin_female_002"  # TODO: 실제 승인받은 코드로 변경
+    template_code: "KA01TP26010905331599603vhZMKgjzT"
     name: "입실 안내 (여성 도미토리)"
     description: "여성 도미토리 입실 시 발송하는 안내 메시지"
     variables:
       - guest_name
-      - check_out_time
       - room_password
     fallback_sms: "check_in_guide_female_dorm"
     buttons:
@@ -41,14 +40,11 @@ templates:
 
   # 남성 도미토리 입실 안내
   check_in_guide_male_dorm:
-    template_code: "staytuned_checkin_male_003"  # TODO: 실제 승인받은 코드로 변경
+    template_code: "KA01TP260109053411563W8t2XBuAKYr"
     name: "입실 안내 (남성 도미토리)"
     description: "남성 도미토리 입실 시 발송하는 안내 메시지"
     variables:
       - guest_name
-      - check_in_date
-      - check_in_time
-      - check_out_time
       - room_password
     fallback_sms: "check_in_guide_male_dorm"
     buttons:
@@ -57,16 +53,12 @@ templates:
         url_mobile: "https://naver.me/I55Re2hF"
         url_pc: "https://naver.me/I55Re2hF"
 
-  # 포틀럭파티 안내
+  # 포틀럭파티 안내 (변수 없음)
   facility_info:
-    template_code: "staytuned_potluck_004"  # TODO: 실제 승인받은 코드로 변경
+    template_code: "KA01TP260109053457545v5a3K8TYeXg"
     name: "포틀럭파티 안내"
     description: "포틀럭파티 개최 시 발송하는 안내 메시지"
-    variables:
-      - event_date
-      - event_time
-      - location
-      - fee
+    variables: []
     fallback_sms: "facility_info"
     buttons:
       - type: "WL"
@@ -74,13 +66,12 @@ templates:
         url_mobile: "https://naver.me/5tJIZ0BF"
         url_pc: "https://naver.me/5tJIZ0BF"
 
-  # 애견동반 안내
+  # 애견동반 안내 (변수 없음)
   pet_info:
-    template_code: "staytuned_pet_005"  # TODO: 실제 승인받은 코드로 변경
+    template_code: "KA01TP260111045826187X1K2JghuJ1i"
     name: "애견동반 안내"
     description: "애견동반 옵션 선택 고객 대상 안내 메시지"
-    variables:
-      - guest_name
+    variables: []
     fallback_sms: "pet_info"
     buttons: []
 

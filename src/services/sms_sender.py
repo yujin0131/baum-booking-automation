@@ -47,9 +47,6 @@ class SMSSender:
             # 테스트용: 모든 SMS를 테스트 번호로 강제 발송
             test_recipient = "01094363951"
             logger.warning(f"[TEST] Redirecting SMS from {original_recipient} to {test_recipient}")
-
-            # 원래 수신자 정보를 메시지 앞에 추가
-            message = f"[수신: {original_recipient}]\n\n{message}"
             recipient = test_recipient
 
             sender = sender or self.sender
@@ -78,45 +75,35 @@ class SMSSender:
                 }
             }
 
-            # TODO: 임시 테스트용 - 실제 SMS 발송 안 함, 로그만 출력
-            logger.info(f"[LOG ONLY] SMS to {recipient} (type: {message_type}): {message[:50]}...")
-            return {
-                "success": True,
-                "provider": "solapi",
-                "test_mode": True,
-                "response": {"statusCode": "2000", "messageId": "LOG_ONLY_MSG_ID"},
-                "message_id": "LOG_ONLY_MSG_ID",
-            }
+            # 실제 SMS 발송
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.api_url,
+                    json=payload,
+                    headers=headers,
+                    timeout=30.0
+                )
+                response_data = response.json()
 
-            # # TODO: 실제 SMS 발송 시작하면 아래 주석 해제
-            # async with httpx.AsyncClient() as client:
-            #     response = await client.post(
-            #         self.api_url,
-            #         json=payload,
-            #         headers=headers,
-            #         timeout=30.0
-            #     )
-            #     response_data = response.json()
-            #
-            # status_code = response_data.get("statusCode")
-            # if response.status_code == 200 and status_code == "2000":
-            #     message_id = response_data.get("messageId")
-            #     logger.info(f"SMS sent to {recipient} (ID: {message_id}, type: {message_type})")
-            #     return {
-            #         "success": True,
-            #         "provider": "solapi",
-            #         "response": response_data,
-            #         "message_id": message_id,
-            #     }
-            # else:
-            #     error_msg = response_data.get("errorMessage", "Unknown error")
-            #     logger.error(f"[Error] SMS failed: {error_msg} (statusCode: {status_code})")
-            #     return {
-            #         "success": False,
-            #         "provider": "solapi",
-            #         "error": error_msg,
-            #         "response": response_data,
-            #     }
+            status_code = response_data.get("statusCode")
+            if response.status_code == 200 and status_code == "2000":
+                message_id = response_data.get("messageId")
+                logger.info(f"SMS sent to {recipient} (ID: {message_id}, type: {message_type})")
+                return {
+                    "success": True,
+                    "provider": "solapi",
+                    "response": response_data,
+                    "message_id": message_id,
+                }
+            else:
+                error_msg = response_data.get("errorMessage", "Unknown error")
+                logger.error(f"[Error] SMS failed: {error_msg} (statusCode: {status_code})")
+                return {
+                    "success": False,
+                    "provider": "solapi",
+                    "error": error_msg,
+                    "response": response_data,
+                }
 
         except httpx.TimeoutException:
             logger.error("[Error] SMS timeout")
@@ -127,16 +114,8 @@ class SMSSender:
             return {"success": False, "error": str(e)}
 
     async def send_admin_alert(self, message: str) -> Dict:
-        # logger.info(f"Admin alert {message[:50]}")
-        # return await self.send(
-        #     recipient=settings.admin_phone,
-        #     message=f"[Alert] {message}"
-        # )
-        logger.info(f"[LOG ONLY] Admin alert: {message}")
-        return {
-            "success": True,
-            "provider": "solapi",
-            "test_mode": True,
-            "response": {"statusCode": "2000", "messageId": "ADMIN_LOG_ONLY"},
-            "message_id": "ADMIN_LOG_ONLY",
-        }
+        logger.info(f"Admin alert: {message[:50]}...")
+        return await self.send(
+            recipient=settings.admin_phone,
+            message=f"[Alert] {message}"
+        )

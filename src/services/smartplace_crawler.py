@@ -107,6 +107,11 @@ class SmartplaceCrawler:
             outer_html = await self.auth.page.evaluate("document.documentElement.outerHTML")
             logger.info(f"크롤링 완료: {len(outer_html)} bytes")
 
+            # 디버그: HTML 파일로 저장
+            with open("debug_crawl.html", "w", encoding="utf-8") as f:
+                f.write(outer_html)
+            logger.info("HTML saved to debug_crawl.html")
+
             return outer_html, filter_applied
 
         except Exception as e:

@@ -18,29 +18,26 @@
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover" id="smsTable">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>예약자</th>
-                        <th>타입</th>
-                        <th>수신번호</th>
-                        <th>예약시간</th>
-                        <th>발송시간</th>
-                        <th>상태</th>
-                        <th>재시도</th>
+                        <th data-sort="number" class="sortable">ID</th>
+                        <th data-sort="string" class="sortable">예약자</th>
+                        <th data-sort="string" class="sortable">타입</th>
+                        <th data-sort="string" class="sortable">수신번호</th>
+                        <th data-sort="string" class="sortable">예약시간</th>
+                        <th data-sort="string" class="sortable">발송시간</th>
+                        <th data-sort="string" class="sortable">상태</th>
+                        <th data-sort="string" class="sortable">에러</th>
+                        <th data-sort="string" class="sortable">재시도</th>
                         <th>작업</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for sms in sms_logs %}
-                    <tr>
+                    <tr style="cursor: pointer;" onclick="location.href='/booking/{{ sms.booking_id }}'">
                         <td>{{ sms.id }}</td>
-                        <td>
-                            <a href="/booking/{{ sms.booking_id }}">
-                                {{ sms.booking.guest_name if sms.booking else '-' }}
-                            </a>
-                        </td>
+                        <td>{{ sms.booking.guest_name if sms.booking else '-' }}</td>
                         <td>
                             {% if sms.sms_type.value == 'check_in_guide' %}
                                 <span class="badge bg-info">입실안내</span>
@@ -63,11 +60,18 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if sms.error_message %}
+                                <small class="text-danger" title="{{ sms.error_message }}">{{ sms.error_message[:30] }}{% if sms.error_message|length > 30 %}...{% endif %}</small>
+                            {% else %}
+                                <small class="text-muted">-</small>
+                            {% endif %}
+                        </td>
+                        <td>
                             <small>{{ sms.retry_count }} / {{ sms.max_retries }}</small>
                         </td>
                         <td>
                             {% if sms.status.value in ['failed', 'scheduled'] %}
-                            <button class="btn btn-sm btn-outline-primary" onclick="resendSMS({{ sms.id }})">
+                            <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); resendSMS({{ sms.id }})">
                                 <i class="bi bi-arrow-clockwise"></i>
                             </button>
                             {% endif %}
@@ -79,6 +83,15 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { text-decoration: underline; }
+.sortable.asc::after { content: ' ▲'; font-size: 0.7em; }
+.sortable.desc::after { content: ' ▼'; font-size: 0.7em; }
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -102,5 +115,61 @@ async function resendSMS(smsId) {
         alert('오류 발생: ' + error.message);
     }
 }
+
+// 테이블 정렬
+(function() {
+    const table = document.getElementById('smsTable');
+    if (!table) return;
+
+    const headers = table.querySelectorAll('th[data-sort]');
+    const statusPriority = { '예약됨': 0, '발송완료': 1, '실패': 2 };
+
+    function sortTable(header, forceAsc = null) {
+        const type = header.dataset.sort;
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const index = Array.from(header.parentNode.children).indexOf(header);
+        const isStatusCol = header.textContent.includes('상태');
+
+        let isAsc;
+        if (forceAsc !== null) {
+            isAsc = !forceAsc;
+        } else {
+            isAsc = header.classList.contains('asc');
+        }
+
+        headers.forEach(h => h.classList.remove('asc', 'desc'));
+        header.classList.add(isAsc ? 'desc' : 'asc');
+
+        const dir = isAsc ? -1 : 1;
+
+        rows.sort((a, b) => {
+            let aVal = a.cells[index].textContent.trim();
+            let bVal = b.cells[index].textContent.trim();
+
+            if (type === 'number') {
+                return (parseInt(aVal) - parseInt(bVal)) * dir;
+            }
+            if (isStatusCol) {
+                const aPri = statusPriority[aVal] ?? 99;
+                const bPri = statusPriority[bVal] ?? 99;
+                return (aPri - bPri) * dir;
+            }
+            return aVal.localeCompare(bVal, 'ko') * dir;
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    headers.forEach(header => {
+        header.addEventListener('click', () => sortTable(header));
+    });
+
+    // 기본 정렬: 상태 (예약됨 먼저)
+    const statusHeader = Array.from(headers).find(h => h.textContent.includes('상태'));
+    if (statusHeader) {
+        sortTable(statusHeader, true);
+    }
+})();
 </script>
 {% endblock %}

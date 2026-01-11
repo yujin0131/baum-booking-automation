@@ -94,11 +94,10 @@ async def bookings_page(request: Request, filter: Optional[str] = None):
                 Booking.status != BookingStatus.CANCELLED
             )
         elif filter == "long_stay":
-            # 연박 (2박 이상 - 어제 이전 입실 + 오늘 이후 퇴실)
-            yesterday = today - timedelta(days=1)
+            # 연박 (2박 이상 = 퇴실일 - 입실일 > 1)
+            from sqlalchemy import func
             query = query.filter(
-                Booking.check_in_date < yesterday,  # 어제 전에 입실 (2박 이상)
-                Booking.check_out_date >= today,    # 오늘 이후 퇴실
+                func.julianday(Booking.check_out_date) - func.julianday(Booking.check_in_date) > 1,
                 Booking.status != BookingStatus.CANCELLED
             )
 

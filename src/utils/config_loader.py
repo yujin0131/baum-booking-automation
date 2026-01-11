@@ -14,13 +14,6 @@ CRAWLING_FILE = CONFIG_DIR / "crawling.yaml"
 
 @dataclass
 class AccommodationConfig:
-    name: str
-    address: str
-    emergency_contact: str
-    wifi_ssid: str
-    wifi_password: str
-    check_in_time: str
-    check_out_time: str
     room_passwords: Dict[str, str]
     default_password: str
 
@@ -124,18 +117,7 @@ class ConfigManager:
     def _load_accommodation(self) -> AccommodationConfig:
         data = self._load_yaml(ACCOMMODATION_FILE)
 
-        accommodation = data.get("accommodation", {})
-        wifi = data.get("wifi", {})
-        schedule = data.get("schedule", {})
-
         return AccommodationConfig(
-            name=accommodation.get("name", ""),
-            address=accommodation.get("address", ""),
-            emergency_contact=accommodation.get("emergency_contact", ""),
-            wifi_ssid=wifi.get("ssid", ""),
-            wifi_password=wifi.get("password", ""),
-            check_in_time=schedule.get("check_in_time", "15:00"),
-            check_out_time=schedule.get("check_out_time", "11:00"),
             room_passwords=data.get("room_passwords", {}),
             default_password=data.get("default_password", "0000"),
         )

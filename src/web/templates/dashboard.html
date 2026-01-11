@@ -69,22 +69,23 @@
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover" id="dashboardTable">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>예약자</th>
-                        <th>객실</th>
-                        <th>호실</th>
-                        <th>예약 감지</th>
-                        <th>체크인 날짜</th>
-                        <th>상태</th>
+                        <th data-sort="number" class="sortable">ID</th>
+                        <th data-sort="string" class="sortable">예약자</th>
+                        <th data-sort="string" class="sortable">객실</th>
+                        <th data-sort="string" class="sortable">호실</th>
+                        <th data-sort="string" class="sortable">체크인</th>
+                        <th data-sort="string" class="sortable">체크아웃</th>
+                        <th data-sort="string" class="sortable">상태</th>
+                        <th data-sort="string" class="sortable">예약 감지</th>
                         <th>작업</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for booking in recent_bookings %}
-                    <tr>
+                    <tr style="cursor: pointer;" onclick="location.href='/booking/{{ booking.id }}'">
                         <td>{{ booking.id }}</td>
                         <td>
                             <strong>{{ booking.guest_name }}</strong><br>
@@ -94,8 +95,8 @@
                         <td>
                             <span class="badge bg-secondary">{{ booking.room_number }}</span>
                         </td>
-                        <td>{{ booking.created_at.strftime('%m/%d %H:%M') if booking.created_at else '-' }}</td>
                         <td>{{ booking.check_in_date.strftime('%m/%d') if booking.check_in_date else '-' }}</td>
+                        <td>{{ booking.check_out_date.strftime('%m/%d') if booking.check_out_date else '-' }}</td>
                         <td>
                             {% if booking.status.value == 'new' %}
                                 <span class="badge bg-info">신규</span>
@@ -105,6 +106,7 @@
                                 <span class="badge bg-secondary">{{ booking.status.value }}</span>
                             {% endif %}
                         </td>
+                        <td>{{ booking.created_at.strftime('%m/%d %H:%M') if booking.created_at else '-' }}</td>
                         <td>
                             <a href="/booking/{{ booking.id }}" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-eye"></i> 상세
@@ -117,6 +119,15 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { text-decoration: underline; }
+.sortable.asc::after { content: ' ▲'; font-size: 0.7em; }
+.sortable.desc::after { content: ' ▼'; font-size: 0.7em; }
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -154,5 +165,61 @@ async function triggerCrawl() {
         btn.innerHTML = '<i class="bi bi-cloud-download"></i> 크롤링 실행';
     }
 }
+
+// 테이블 정렬
+(function() {
+    const table = document.getElementById('dashboardTable');
+    if (!table) return;
+
+    const headers = table.querySelectorAll('th[data-sort]');
+    const statusPriority = { '신규': 0, '발송완료': 1, '취소': 2 };
+
+    function sortTable(header, forceAsc = null) {
+        const type = header.dataset.sort;
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const index = Array.from(header.parentNode.children).indexOf(header);
+        const isStatusCol = header.textContent.includes('상태');
+
+        let isAsc;
+        if (forceAsc !== null) {
+            isAsc = !forceAsc;
+        } else {
+            isAsc = header.classList.contains('asc');
+        }
+
+        headers.forEach(h => h.classList.remove('asc', 'desc'));
+        header.classList.add(isAsc ? 'desc' : 'asc');
+
+        const dir = isAsc ? -1 : 1;
+
+        rows.sort((a, b) => {
+            let aVal = a.cells[index].textContent.trim();
+            let bVal = b.cells[index].textContent.trim();
+
+            if (type === 'number') {
+                return (parseInt(aVal) - parseInt(bVal)) * dir;
+            }
+            if (isStatusCol) {
+                const aPri = statusPriority[aVal] ?? 99;
+                const bPri = statusPriority[bVal] ?? 99;
+                return (aPri - bPri) * dir;
+            }
+            return aVal.localeCompare(bVal, 'ko') * dir;
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    headers.forEach(header => {
+        header.addEventListener('click', () => sortTable(header));
+    });
+
+    // 기본 정렬: 상태 (신규 먼저)
+    const statusHeader = Array.from(headers).find(h => h.textContent.includes('상태'));
+    if (statusHeader) {
+        sortTable(statusHeader, true);
+    }
+})();
 </script>
 {% endblock %}
