@@ -15,6 +15,7 @@ class BookingStatus(str, enum.Enum):
     NEW = "new"
     CONFIRMED = "confirmed"
     SMS_SENT = "sms_sent"
+    SMS_FAILED = "sms_failed"
     CHECKED_IN = "checked_in"
     CHECKED_OUT = "checked_out"
     CANCELLED = "cancelled"
@@ -140,6 +141,10 @@ class Booking(Base):
         # 예약: 미래 체크인 (오늘이 아닌 경우) - 완료보다 먼저 체크
         if self.check_in_date and self.check_in_date > today:
             return ("예약", "primary")
+
+        # 실패: SMS 발송 실패
+        if self.status == BookingStatus.SMS_FAILED:
+            return ("실패", "danger")
 
         # 완료: 오늘/과거 체크인이고 SMS 발송됨 또는 체크인 완료
         if self.status in [BookingStatus.SMS_SENT, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT]:

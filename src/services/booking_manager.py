@@ -322,6 +322,8 @@ class BookingManager:
 
     def update_sms_status(self, sms_log: SMSLog, success: bool, data: Union[Dict, str] = None):
         try:
+            booking = sms_log.booking
+
             if success:
                 sms_log.status = SMSStatus.SENT
                 sms_log.sent_time = now_kst()
@@ -330,7 +332,6 @@ class BookingManager:
                 logger.info(f"SMS {sms_log.id} send fin")
 
                 # 해당 예약의 모든 SMS가 발송 완료되었는지 확인
-                booking = sms_log.booking
                 if booking and booking.all_sms_sent and booking.status == BookingStatus.NEW:
                     booking.status = BookingStatus.SMS_SENT
                     logger.info(f"[Status Update] {booking.guest_name} 예약 상태: NEW → SMS_SENT")
@@ -342,6 +343,11 @@ class BookingManager:
                     f"[Warn] {sms_log.id} "
                     f"(retry {sms_log.retry_count}/{sms_log.max_retries})"
                 )
+
+                # 재시도 불가능하면 예약 상태를 SMS_FAILED로 변경
+                if booking and not sms_log.can_retry and booking.status == BookingStatus.NEW:
+                    booking.status = BookingStatus.SMS_FAILED
+                    logger.info(f"[Status Update] {booking.guest_name} 예약 상태: NEW → SMS_FAILED")
 
             self.db.commit()
 
