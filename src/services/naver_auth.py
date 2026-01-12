@@ -139,9 +139,9 @@ class NaverAuth:
             geolocation={'latitude': 37.5665, 'longitude': 126.9780},
         )
 
-        # 불필요한 리소스 차단으로 메모리/CPU 최적화
+        # 불필요한 리소스 차단으로 메모리/CPU 최적화 (stylesheet는 제외 - 렌더링에 필요할 수 있음)
         await self.context.route("**/*", lambda route: (
-            route.abort() if route.request.resource_type in ["image", "media", "font", "stylesheet"]
+            route.abort() if route.request.resource_type in ["image", "media", "font"]
             else route.continue_()
         ))
 
@@ -295,9 +295,9 @@ class NaverAuth:
             )
             self.context = await self.browser.new_context(storage_state=filepath)
 
-            # 불필요한 리소스 차단으로 메모리/CPU 최적화
+            # 불필요한 리소스 차단으로 메모리/CPU 최적화 (stylesheet는 제외)
             await self.context.route("**/*", lambda route: (
-                route.abort() if route.request.resource_type in ["image", "media", "font", "stylesheet"]
+                route.abort() if route.request.resource_type in ["image", "media", "font"]
                 else route.continue_()
             ))
 
