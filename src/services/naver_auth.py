@@ -127,6 +127,10 @@ class NaverAuth:
                 'browser.cache.disk.enable': False,  # 디스크 캐시 비활성화
                 'browser.cache.memory.enable': False,  # 메모리 캐시 비활성화
                 'browser.sessionstore.resume_from_crash': False,  # 세션 복구 비활성화
+                'dom.ipc.processCount': 1,  # Content 프로세스 1개로 제한 (기본 4개)
+                'dom.ipc.processCount.webIsolated': 1,  # 웹 격리 프로세스 제한
+                'browser.tabs.remote.autostart': True,  # e10s 활성화 유지
+                'browser.tabs.remote.separatePrivilegedContentProcess': False,  # 특권 프로세스 분리 비활성화
             }
         )
 
@@ -302,6 +306,10 @@ class NaverAuth:
                     'browser.cache.disk.enable': False,
                     'browser.cache.memory.enable': False,
                     'browser.sessionstore.resume_from_crash': False,
+                    'dom.ipc.processCount': 1,  # Content 프로세스 1개로 제한
+                    'dom.ipc.processCount.webIsolated': 1,
+                    'browser.tabs.remote.autostart': True,
+                    'browser.tabs.remote.separatePrivilegedContentProcess': False,
                 }
             )
             self.context = await self.browser.new_context(storage_state=filepath)
