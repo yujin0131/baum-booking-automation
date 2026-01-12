@@ -121,7 +121,13 @@ class NaverAuth:
             args=[
                 '--disable-dev-shm-usage',  # /dev/shm 메모리 사용 제한
                 '--disable-blink-features=AutomationControlled',  # 자동화 탐지 우회
-            ]
+            ],
+            # Firefox 메모리 최적화 설정
+            firefox_user_prefs={
+                'browser.cache.disk.enable': False,  # 디스크 캐시 비활성화
+                'browser.cache.memory.enable': False,  # 메모리 캐시 비활성화
+                'browser.sessionstore.resume_from_crash': False,  # 세션 복구 비활성화
+            }
         )
 
         # 컨텍스트 생성 - 실제 사용자처럼 보이는 설정
@@ -291,7 +297,12 @@ class NaverAuth:
                 args=[
                     '--disable-dev-shm-usage',
                     '--disable-blink-features=AutomationControlled',
-                ]
+                ],
+                firefox_user_prefs={
+                    'browser.cache.disk.enable': False,
+                    'browser.cache.memory.enable': False,
+                    'browser.sessionstore.resume_from_crash': False,
+                }
             )
             self.context = await self.browser.new_context(storage_state=filepath)
 

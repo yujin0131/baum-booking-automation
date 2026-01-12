@@ -1,4 +1,5 @@
 import asyncio
+import gc
 from typing import Optional, List, Dict, Tuple
 from pathlib import Path
 from bs4 import BeautifulSoup
@@ -13,7 +14,7 @@ class SmartplaceCrawler:
     """네이버 스마트플레이스 이용 내역 크롤러"""
 
     SESSION_FILE = "naver_session.json"
-    BROWSER_RESTART_INTERVAL = 20  # 20회 크롤링마다 브라우저 재시작
+    BROWSER_RESTART_INTERVAL = 1  # 매 크롤링마다 브라우저 재시작 (메모리 누수 방지)
 
     def __init__(self, username: str = None, password: str = None, headless: bool = True):
         self.username = username or settings.naver_id
@@ -234,5 +235,9 @@ class SmartplaceCrawler:
         await self.close()
 
     async def close(self):
-        """브라우저 종료"""
-        await self.auth.close()
+        """브라우저 종료 및 메모리 정리"""
+        if self.auth:
+            await self.auth.close()
+        # 명시적 가비지 컬렉션으로 메모리 해제
+        gc.collect()
+        logger.debug("Browser closed and garbage collected")
