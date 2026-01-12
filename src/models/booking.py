@@ -185,7 +185,7 @@ class SMSLog(Base):
 
     booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=False, index=True, comment="예약 ID")
 
-    sms_type = Column(SQLEnum(SMSType), nullable=False, index=True, comment="SMS 타입 (CHECK_IN_GUIDE / FACILITY_INFO)")
+    sms_type = Column(SQLEnum(SMSType), nullable=False, index=True, comment="SMS 타입 (CHECK_IN_GUIDE / FACILITY_INFO / POTLUCK_DAILY)")
     recipient_phone = Column(String(20), nullable=False, comment="수신자 전화번호")
     message_content = Column(Text, nullable=False, comment="메시지 내용")
 
