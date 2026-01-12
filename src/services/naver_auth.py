@@ -118,6 +118,10 @@ class NaverAuth:
         # Firefox 사용 (Chromium이 macOS에서 크래시)
         self.browser = await self._playwright.firefox.launch(
             headless=self.headless,
+            args=[
+                '--disable-dev-shm-usage',  # /dev/shm 메모리 사용 제한
+                '--disable-blink-features=AutomationControlled',  # 자동화 탐지 우회
+            ]
         )
 
         # 컨텍스트 생성 - 실제 사용자처럼 보이는 설정
@@ -134,6 +138,12 @@ class NaverAuth:
             permissions=['geolocation'],
             geolocation={'latitude': 37.5665, 'longitude': 126.9780},
         )
+
+        # 불필요한 리소스 차단으로 메모리/CPU 최적화
+        await self.context.route("**/*", lambda route: (
+            route.abort() if route.request.resource_type in ["image", "media", "font", "stylesheet"]
+            else route.continue_()
+        ))
 
         # WebDriver 탐지 우회 스크립트
         await self.context.add_init_script("""
@@ -276,8 +286,21 @@ class NaverAuth:
     async def load_session(self, filepath: str) -> bool:
         try:
             self._playwright = await async_playwright().start()
-            self.browser = await self._playwright.firefox.launch(headless=self.headless)
+            self.browser = await self._playwright.firefox.launch(
+                headless=self.headless,
+                args=[
+                    '--disable-dev-shm-usage',
+                    '--disable-blink-features=AutomationControlled',
+                ]
+            )
             self.context = await self.browser.new_context(storage_state=filepath)
+
+            # 불필요한 리소스 차단으로 메모리/CPU 최적화
+            await self.context.route("**/*", lambda route: (
+                route.abort() if route.request.resource_type in ["image", "media", "font", "stylesheet"]
+                else route.continue_()
+            ))
+
             self.page = await self.context.new_page()
             logger.info(f"세션이 {filepath}에서 로드되었습니다.")
             return True

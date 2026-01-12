@@ -13,6 +13,7 @@ class SmartplaceCrawler:
     """네이버 스마트플레이스 이용 내역 크롤러"""
 
     SESSION_FILE = "naver_session.json"
+    BROWSER_RESTART_INTERVAL = 20  # 20회 크롤링마다 브라우저 재시작
 
     def __init__(self, username: str = None, password: str = None, headless: bool = True):
         self.username = username or settings.naver_id
@@ -21,6 +22,7 @@ class SmartplaceCrawler:
         self.headless = headless
         self.auth: Optional[NaverAuth] = None
         self._browser_initialized = False
+        self._crawl_count = 0  # 크롤링 횟수 카운터
 
     async def _init_browser_if_needed(self):
         """브라우저 lazy 초기화"""
@@ -81,6 +83,16 @@ class SmartplaceCrawler:
             (페이지 outerHTML, 오늘이용 필터 성공 여부)
         """
         try:
+            # 주기적 브라우저 재시작 (메모리 누수 방지)
+            self._crawl_count += 1
+            if self._crawl_count >= self.BROWSER_RESTART_INTERVAL:
+                logger.info(f"브라우저 재시작 (크롤링 {self._crawl_count}회)")
+                if self.auth:
+                    await self.auth.close()
+                    self.auth = None
+                    self._browser_initialized = False
+                self._crawl_count = 0
+
             if not await self._ensure_login():
                 logger.error("로그인 실패")
                 return None, False
@@ -111,6 +123,9 @@ class SmartplaceCrawler:
             with open("debug_crawl.html", "w", encoding="utf-8") as f:
                 f.write(outer_html)
             logger.info("HTML saved to debug_crawl.html")
+
+            # 메모리 정리: 페이지 컨텍스트 클리어
+            await self.auth.page.evaluate("() => { document.body.innerHTML = ''; }")
 
             return outer_html, filter_applied
 

@@ -40,7 +40,7 @@ class BookingScheduler:
             else:
                 # SmartplaceCrawler 사용 (봇 탐지 우회 로그인)
                 from src.services.smartplace_crawler import SmartplaceCrawler
-                self.scraper = SmartplaceCrawler(headless=False)
+                self.scraper = SmartplaceCrawler(headless=True)
                 logger.info("Using SmartplaceCrawler")
 
             # self.sms_sender = SMSSender()
