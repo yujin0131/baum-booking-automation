@@ -378,3 +378,86 @@ class BookingManager:
         if with_sms_logs:
             query = query.options(joinedload(Booking.sms_logs))
         return query.filter(Booking.status == status).all()
+
+    def get_multi_night_guests_for_today(self) -> List[Booking]:
+        """
+        연박자 조회: 오늘이 체크인 날도 아니고 체크아웃 날도 아닌 중간 날짜인 게스트
+        즉, check_in_date < 오늘 < check_out_date
+        """
+        try:
+            today = now_kst().date()
+
+            bookings = (
+                self.db.query(Booking)
+                .filter(
+                    Booking.check_in_date < today,  # 이미 체크인함
+                    Booking.check_out_date > today,  # 아직 체크아웃 전
+                    Booking.status.notin_([BookingStatus.CANCELLED, BookingStatus.CHECKED_OUT])  # 취소/퇴실 제외
+                )
+                .options(joinedload(Booking.sms_logs))
+                .all()
+            )
+
+            return bookings
+
+        except Exception as e:
+            logger.error(f"[Error] get_multi_night_guests_for_today: {e}")
+            return []
+
+    def create_daily_potluck_sms(self, booking: Booking) -> Optional[SMSLog]:
+        """
+        연박자에게 오늘 포틀럭 안내 SMS 생성
+        이미 오늘 포틀럭 안내를 받았으면 None 반환
+        """
+        try:
+            today = now_kst().date()
+
+            # 오늘 이미 FACILITY_INFO (포틀럭) SMS를 받았는지 체크
+            existing_potluck_today = (
+                self.db.query(SMSLog)
+                .filter(
+                    SMSLog.booking_id == booking.id,
+                    SMSLog.sms_type == SMSType.FACILITY_INFO,
+                    SMSLog.template_key == "facility_info",
+                    SMSLog.created_at >= datetime.combine(today, datetime.min.time())
+                )
+                .first()
+            )
+
+            if existing_potluck_today:
+                logger.debug(f"[skip] {booking.guest_name} - 오늘 이미 포틀럭 안내 발송됨")
+                return None
+
+            # 포틀럭 안내 템플릿 가져오기
+            templates = self._get_sms_templates()
+            facility_template = templates.get("facility_info", "")
+
+            # 템플릿 코드 조회
+            template_code = self._get_kakao_template_code("facility_info")
+
+            # SMS 로그 생성 (즉시 발송)
+            sms_log = SMSLog(
+                booking_id=booking.id,
+                sms_type=SMSType.FACILITY_INFO,
+                recipient_phone=booking.guest_phone,
+                message_content=facility_template,
+                template_key="facility_info",
+                template_code=template_code,
+                template_vars=None,  # facility_info는 변수 없음
+                status=SMSStatus.SCHEDULED,
+                scheduled_time=now_kst(),  # 즉시 발송
+                retry_count=0,
+                max_retries=settings.max_retries,
+            )
+
+            self.db.add(sms_log)
+            self.db.commit()
+            self.db.refresh(sms_log)
+
+            logger.success(f"[Daily Potluck] {booking.guest_name} - SMS 로그 생성")
+            return sms_log
+
+        except Exception as e:
+            logger.error(f"[Error] create_daily_potluck_sms: {e}")
+            self.db.rollback()
+            return None

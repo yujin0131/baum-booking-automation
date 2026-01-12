@@ -94,7 +94,7 @@ class KakaoSender:
             original_recipient = recipient.replace("-", "").replace(" ", "")
 
             # 테스트용: 모든 메시지를 테스트 번호로 강제 발송
-            test_recipient = "01094363951"
+            test_recipient = "01098745214"
             logger.warning(f"[TEST] Redirecting Kakao from {original_recipient} to {test_recipient}")
             recipient = test_recipient
 

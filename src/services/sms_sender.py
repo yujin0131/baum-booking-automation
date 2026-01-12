@@ -45,7 +45,7 @@ class SMSSender:
             original_recipient = recipient.replace("-", "").replace(" ", "")
 
             # 테스트용: 모든 SMS를 테스트 번호로 강제 발송
-            test_recipient = "01094363951"
+            test_recipient = "01098745214"
             logger.warning(f"[TEST] Redirecting SMS from {original_recipient} to {test_recipient}")
             recipient = test_recipient
 

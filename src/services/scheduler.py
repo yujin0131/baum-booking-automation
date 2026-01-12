@@ -106,6 +106,15 @@ class BookingScheduler:
             )
             logger.info("Job registered: daily check (09:00)")
 
+            self.scheduler.add_job(
+                self.send_daily_potluck_to_multi_night_guests,
+                trigger=CronTrigger(hour=13, minute=0),
+                id="daily_potluck",
+                name="Daily potluck for multi-night guests",
+                replace_existing=True,
+            )
+            logger.info("Job registered: daily potluck (13:00)")
+
             self.scheduler.start()
             logger.success("Scheduler started")
 
@@ -366,3 +375,47 @@ class BookingScheduler:
             logger.error(f"[Error] Daily check failed {e}", exc_info=True)
             # await self.sms_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")
             await self.kakao_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")
+
+    async def send_daily_potluck_to_multi_night_guests(self):
+        """
+        연박자에게 매일 오후 1시 포틀럭 안내 발송
+        오늘이 체크인 날도 아니고 체크아웃 날도 아닌 게스트 대상
+        """
+        try:
+            logger.info("=" * 60)
+            logger.info("Daily potluck notification started")
+            logger.info("=" * 60)
+
+            with get_session() as db:
+                booking_manager = BookingManager(db)
+
+                # 연박자 조회
+                multi_night_guests = booking_manager.get_multi_night_guests_for_today()
+
+                if not multi_night_guests:
+                    logger.info("No multi-night guests for today")
+                    return
+
+                logger.info(f"Found {len(multi_night_guests)} multi-night guest(s)")
+
+                sms_created_count = 0
+                for booking in multi_night_guests:
+                    sms_log = booking_manager.create_daily_potluck_sms(booking)
+                    if sms_log:
+                        sms_created_count += 1
+
+                if sms_created_count > 0:
+                    logger.success(
+                        f"Daily potluck job done - {sms_created_count} SMS created"
+                    )
+
+                    # 관리자 알림
+                    await self.kakao_sender.send_admin_alert(
+                        f"Daily potluck: {sms_created_count} SMS scheduled"
+                    )
+                else:
+                    logger.info("All multi-night guests already received potluck notification today")
+
+        except Exception as e:
+            logger.error(f"[Error] Daily potluck job failed {e}", exc_info=True)
+            await self.kakao_sender.send_admin_alert(f"Daily potluck error: {str(e)[:50]}")
