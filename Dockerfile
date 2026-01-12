@@ -9,6 +9,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Seoul
 ENV PYTHONUNBUFFERED=1
 
+# Firefox 메모리 최적화: 멀티프로세스 비활성화
+ENV MOZ_FORCE_DISABLE_E10S=1
+ENV MOZ_DISABLE_CONTENT_SANDBOX=1
+
 # 타임존 데이터 설치
 RUN apt-get update && apt-get install -y tzdata && rm -rf /var/lib/apt/lists/*
 
