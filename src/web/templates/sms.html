@@ -41,6 +41,8 @@
                         <td>
                             {% if sms.sms_type.value == 'check_in_guide' %}
                                 <span class="badge bg-info">입실안내</span>
+                            {% elif sms.sms_type.value == 'potluck_daily' %}
+                                <span class="badge bg-success">포틀럭(연박)</span>
                             {% else %}
                                 <span class="badge bg-secondary">포틀럭안내</span>
                             {% endif %}

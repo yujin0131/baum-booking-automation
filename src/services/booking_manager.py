@@ -412,13 +412,12 @@ class BookingManager:
         try:
             today = now_kst().date()
 
-            # 오늘 이미 FACILITY_INFO (포틀럭) SMS를 받았는지 체크
+            # 오늘 이미 POTLUCK_DAILY SMS를 받았는지 체크
             existing_potluck_today = (
                 self.db.query(SMSLog)
                 .filter(
                     SMSLog.booking_id == booking.id,
-                    SMSLog.sms_type == SMSType.FACILITY_INFO,
-                    SMSLog.template_key == "facility_info",
+                    SMSLog.sms_type == SMSType.POTLUCK_DAILY,
                     SMSLog.created_at >= datetime.combine(today, datetime.min.time())
                 )
                 .first()
@@ -438,7 +437,7 @@ class BookingManager:
             # SMS 로그 생성 (즉시 발송)
             sms_log = SMSLog(
                 booking_id=booking.id,
-                sms_type=SMSType.FACILITY_INFO,
+                sms_type=SMSType.POTLUCK_DAILY,  # 연박자 매일 발송용 타입
                 recipient_phone=booking.guest_phone,
                 message_content=facility_template,
                 template_key="facility_info",
