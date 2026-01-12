@@ -104,6 +104,42 @@ class SmartplaceCrawler:
             await self.auth.page.goto(url, wait_until="domcontentloaded", timeout=60000)
             await self.auth._random_delay(3000, 5000)  # 페이지 로딩 대기
 
+            # 로그인 페이지로 리다이렉트 확인 (세션 만료 감지)
+            current_url = self.auth.page.url
+            page_title = await self.auth.page.title()
+
+            if "로그인" in page_title or "nid.naver.com" in current_url:
+                logger.warning(f"세션 만료 감지 (title: {page_title}, url: {current_url})")
+                logger.info("세션 파일 삭제 및 재로그인 시도")
+
+                # 세션 파일 삭제
+                from pathlib import Path
+                session_file = Path(self.SESSION_FILE)
+                if session_file.exists():
+                    session_file.unlink()
+                    logger.info(f"세션 파일 삭제: {self.SESSION_FILE}")
+
+                # 재로그인
+                success = await self.auth.login(self.username, self.password)
+                if not success:
+                    logger.error("재로그인 실패")
+                    return None, False
+
+                logger.success("재로그인 성공")
+
+                # 세션 저장
+                await self.auth.save_session(self.SESSION_FILE)
+
+                # 예약 페이지 다시 이동
+                await self.auth.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                await self.auth._random_delay(3000, 5000)
+
+                # 재확인
+                current_url = self.auth.page.url
+                if "nid.naver.com" in current_url:
+                    logger.error("재로그인 후에도 로그인 페이지, 중단")
+                    return None, False
+
             # "오늘이용" 필터 클릭
             filter_applied = False
             try:
