@@ -171,8 +171,6 @@ class BookingScheduler:
                 if new_bookings_count > 0:
                     from src.models.booking import Booking
 
-                    alert_msg = f"New bookings: {new_bookings_count}"
-
                     recent_bookings = (
                         db.query(Booking)
                         .order_by(Booking.id.desc())
@@ -184,13 +182,14 @@ class BookingScheduler:
                         b for b in recent_bookings if b.special_request
                     ]
 
+                    # 요청사항이 있을 때만 알림 발송
                     if bookings_with_requests:
-                        alert_msg += "\n\nSpecial requests:"
+                        alert_msg = f"New bookings: {new_bookings_count}"
+                        alert_msg += "\n\n요청사항:"
                         for b in bookings_with_requests:
                             alert_msg += f"\n- {b.guest_name}: {b.special_request}"
 
-                    # await self.sms_sender.send_admin_alert(alert_msg)
-                    await self.kakao_sender.send_admin_alert(alert_msg)
+                        await self.sms_sender.send_admin_alert(alert_msg)
 
                 logger.success(
                     f"Scrape job done - {new_bookings_count} new bookings processed"
@@ -298,11 +297,14 @@ class BookingScheduler:
                 failed_count = sum(1 for r in results if r[0] == "failed")
 
                 for sms_log in permanent_failures:
-                    # await self.sms_sender.send_admin_alert(
-                    await self.kakao_sender.send_admin_alert(
-                        f"SMS failed: {sms_log.recipient_phone} "
+                    await self.sms_sender.send_admin_alert(
+                        f"전송 실패건: {sms_log.recipient_phone} "
                         f"({sms_log.sms_type.value})"
                     )
+                    # await self.kakao_sender.send_admin_alert(
+                    #     f"SMS failed: {sms_log.recipient_phone} "
+                    #     f"({sms_log.sms_type.value})"
+                    # )
 
                 logger.success(
                     f"Kakao job done - sent: {sent_count}, failed: {failed_count}"
@@ -363,17 +365,16 @@ class BookingScheduler:
                 logger.info(report)
 
                 # await self.sms_sender.send_admin_alert(
-                await self.kakao_sender.send_admin_alert(
-                    f"Daily: {total_bookings} bookings, "
-                    f"{sent_sms} SMS sent, {failed_sms} failed"
-                )
+                #     f"Daily: {total_bookings} bookings, "
+                #     f"{sent_sms} SMS sent, {failed_sms} failed"
+                # )
 
                 logger.success("Daily health check done")
 
         except Exception as e:
             logger.error(f"[Error] Daily check failed {e}", exc_info=True)
-            # await self.sms_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")
-            await self.kakao_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")
+            await self.sms_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")
+            # await self.kakao_sender.send_admin_alert(f"Health check error: {str(e)[:50]}")
 
     async def send_daily_potluck_to_multi_night_guests(self):
         """
@@ -408,13 +409,14 @@ class BookingScheduler:
                         f"Daily potluck job done - {sms_created_count} SMS created"
                     )
 
-                    # 관리자 알림
-                    await self.kakao_sender.send_admin_alert(
-                        f"Daily potluck: {sms_created_count} SMS scheduled"
-                    )
+                    # 관리자 알림 (비활성화)
+                    # await self.sms_sender.send_admin_alert(
+                    #     f"Daily potluck: {sms_created_count} SMS scheduled"
+                    # )
                 else:
                     logger.info("All multi-night guests already received potluck notification today")
 
         except Exception as e:
             logger.error(f"[Error] Daily potluck job failed {e}", exc_info=True)
-            await self.kakao_sender.send_admin_alert(f"Daily potluck error: {str(e)[:50]}")
+            await self.sms_sender.send_admin_alert(f"연박 포틀럭 안내 전송 error: {str(e)[:50]}")
+            # await self.kakao_sender.send_admin_alert(f"Daily potluck error: {str(e)[:50]}")
