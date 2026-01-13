@@ -254,11 +254,10 @@ class BookingScheduler:
                                 variables=template_vars
                             )
                         else:
-                            # 친구톡으로 fallback (template_key 없는 경우)
-                            result = await self.kakao_sender.send_friendtalk(
-                                recipient=sms_log.recipient_phone,
-                                message=sms_log.message_content,
-                            )
+                            # template_key 없으면 에러 처리
+                            error_msg = "template_key is required for Kakao alimtalk"
+                            logger.error(f"[Kakao] {error_msg} (log_id: {sms_log.id})")
+                            result = {"success": False, "error": error_msg}
 
                         if result.get("success"):
                             booking_manager.mark_sms_as_sent(sms_log, result)

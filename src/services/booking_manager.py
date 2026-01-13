@@ -172,9 +172,6 @@ class BookingManager:
                 guide_time = guide_time_scheduled
                 facility_time = guide_time + timedelta(minutes=1)
 
-            # 테스트용: guest_name에 원래 수신자 번호 추가
-            test_guest_name = f"{booking.guest_name} ({booking.guest_phone})"
-
             # 객실별 체크인 안내 템플릿 선택
             templates = self._get_sms_templates()
 
@@ -188,16 +185,16 @@ class BookingManager:
             # 템플릿별 실제 필요한 변수만 정의
             TEMPLATE_VARS = {
                 "check_in_guide_normal": {
-                    "guest_name": test_guest_name,
+                    "guest_name": booking.guest_name,
                     "room_number": booking.room_number or "확인 후 안내",
                     "room_password": booking.room_password,
                 },
                 "check_in_guide_female_dorm": {
-                    "guest_name": test_guest_name,
+                    "guest_name": booking.guest_name,
                     "room_password": booking.room_password,
                 },
                 "check_in_guide_male_dorm": {
-                    "guest_name": test_guest_name,
+                    "guest_name": booking.guest_name,
                     "room_password": booking.room_password,
                 },
                 "facility_info": None,

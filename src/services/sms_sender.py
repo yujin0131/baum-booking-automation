@@ -42,12 +42,7 @@ class SMSSender:
     async def send(self, recipient: str, message: str, sender: Optional[str] = None) -> Dict:
         try:
             # 전화번호 포맷 정리
-            original_recipient = recipient.replace("-", "").replace(" ", "")
-
-            # 테스트용: 모든 SMS를 테스트 번호로 강제 발송
-            test_recipient = "01098745214"
-            logger.warning(f"[TEST] Redirecting SMS from {original_recipient} to {test_recipient}")
-            recipient = test_recipient
+            recipient = recipient.replace("-", "").replace(" ", "")
 
             sender = sender or self.sender
             sender = sender.replace("-", "").replace(" ", "")
