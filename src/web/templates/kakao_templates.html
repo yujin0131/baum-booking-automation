@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}카카오 템플릿 관리 - 예약 자동화 시스템{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="bi bi-chat-square-text"></i> 카카오 알림톡 템플릿 관리</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTemplateModal">
+        <i class="bi bi-plus-circle"></i> 템플릿 추가
+    </button>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    <strong>재기동 없이 실시간 수정 가능</strong> - 템플릿 코드를 수정하면 즉시 적용됩니다.
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th style="width: 5%">ID</th>
+                <th style="width: 15%">템플릿 키</th>
+                <th style="width: 20%">이름</th>
+                <th style="width: 20%">템플릿 코드</th>
+                <th style="width: 20%">설명</th>
+                <th style="width: 10%">상태</th>
+                <th style="width: 10%">작업</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for template in templates %}
+            <tr id="template-row-{{ template.id }}">
+                <td>{{ template.id }}</td>
+                <td><code>{{ template.template_key }}</code></td>
+                <td>
+                    <span class="view-mode">{{ template.name }}</span>
+                    <input type="text" class="form-control form-control-sm edit-mode d-none" value="{{ template.name }}" data-field="name">
+                </td>
+                <td>
+                    <span class="view-mode"><code>{{ template.template_code }}</code></span>
+                    <input type="text" class="form-control form-control-sm edit-mode d-none" value="{{ template.template_code }}" data-field="template_code">
+                </td>
+                <td>
+                    <span class="view-mode">{{ template.description or '-' }}</span>
+                    <textarea class="form-control form-control-sm edit-mode d-none" rows="2" data-field="description">{{ template.description or '' }}</textarea>
+                </td>
+                <td>
+                    {% if template.is_active %}
+                        <span class="badge bg-success">활성</span>
+                    {% else %}
+                        <span class="badge bg-secondary">비활성</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-primary edit-btn" onclick="editTemplate({{ template.id }})">
+                        <i class="bi bi-pencil"></i> 수정
+                    </button>
+                    <button class="btn btn-sm btn-success save-btn d-none" onclick="saveTemplate({{ template.id }})">
+                        <i class="bi bi-check"></i> 저장
+                    </button>
+                    <button class="btn btn-sm btn-secondary cancel-btn d-none" onclick="cancelEdit({{ template.id }})">
+                        취소
+                    </button>
+                </td>
+            </tr>
+            <tr id="template-details-{{ template.id }}" class="table-secondary">
+                <td colspan="7">
+                    <div class="p-2">
+                        <strong>필수 변수:</strong>
+                        <code>{{ template.variables or '없음' }}</code>
+                        <br>
+                        <small class="text-muted">
+                            수정일: {{ template.updated_at.strftime('%Y-%m-%d %H:%M') if template.updated_at else '-' }}
+                        </small>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-4">
+    <h5>💡 사용 방법</h5>
+    <ol>
+        <li>카카오 비즈니스에서 알림톡 템플릿 승인받기</li>
+        <li><strong>"템플릿 추가"</strong> 버튼으로 승인받은 템플릿 등록</li>
+        <li>저장하면 <strong>재기동 없이 즉시 적용</strong></li>
+    </ol>
+</div>
+
+<!-- 템플릿 추가 모달 -->
+<div class="modal fade" id="addTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">템플릿 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addTemplateForm">
+                    <div class="mb-3">
+                        <label class="form-label">템플릿 키 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="template_key" required>
+                        <small class="text-muted">예: check_in_guide_normal</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">템플릿 코드 (SOLAPI 승인 코드) <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="template_code" required>
+                        <small class="text-muted">예: 9kMLDGVA4T</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">템플릿 이름 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" required>
+                        <small class="text-muted">예: 일반 객실 입실 안내</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">설명</label>
+                        <textarea class="form-control" id="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">필수 변수 (쉼표로 구분)</label>
+                        <input type="text" class="form-control" id="variables" placeholder="room_number, room_password">
+                        <small class="text-muted">예: room_number, room_password</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="addTemplate()">추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.edit-mode.d-none {
+    display: none !important;
+}
+</style>
+
+<script>
+async function addTemplate() {
+    const form = document.getElementById('addTemplateForm');
+
+    // 필수 필드 검증
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const data = {
+        template_key: document.getElementById('template_key').value.trim(),
+        template_code: document.getElementById('template_code').value.trim(),
+        name: document.getElementById('name').value.trim(),
+        description: document.getElementById('description').value.trim(),
+        variables: document.getElementById('variables').value.split(',').map(v => v.trim()).filter(v => v),
+        buttons: []
+    };
+
+    try {
+        const response = await fetch('/api/kakao-templates', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert('템플릿이 추가되었습니다!' + '\n박도형바보');
+            location.reload();
+        } else {
+            alert('추가 실패: ' + result.error);
+        }
+    } catch (error) {
+        alert('오류 발생: ' + error);
+    }
+}
+
+function editTemplate(id) {
+    const row = document.getElementById(`template-row-${id}`);
+    row.querySelectorAll('.view-mode').forEach(el => el.classList.add('d-none'));
+    row.querySelectorAll('.edit-mode').forEach(el => el.classList.remove('d-none'));
+    row.querySelector('.edit-btn').classList.add('d-none');
+    row.querySelector('.save-btn').classList.remove('d-none');
+    row.querySelector('.cancel-btn').classList.remove('d-none');
+}
+
+function cancelEdit(id) {
+    location.reload();
+}
+
+async function saveTemplate(id) {
+    const row = document.getElementById(`template-row-${id}`);
+    const inputs = row.querySelectorAll('.edit-mode');
+
+    const data = {};
+    inputs.forEach(input => {
+        const field = input.getAttribute('data-field');
+        data[field] = input.value;
+    });
+
+    try {
+        const response = await fetch(`/api/kakao-templates/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert('템플릿이 수정되었습니다!' + '\n박도형바보');
+            location.reload();
+        } else {
+            alert('수정 실패: ' + result.error);
+        }
+    } catch (error) {
+        alert('오류 발생: ' + error);
+    }
+}
+</script>
+{% endblock %}
