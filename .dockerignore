@@ -22,8 +22,9 @@ crawl_status.json
 logs/
 *.log
 
-# HTML 테스트 파일
-*.html
+# HTML 테스트 파일 (템플릿 제외)
+sample_booking_page.html
+test_*.html
 
 # 환경 설정
 .env
