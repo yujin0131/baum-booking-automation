@@ -62,9 +62,10 @@ class BookingManager:
                 .first()
             )
 
+            crawled_status = booking_data.get("booking_status", "").strip()
+
             if existing_booking:
                 # 크롤링한 상태가 "취소"면 DB 상태 업데이트
-                crawled_status = booking_data.get("booking_status", "")
                 if crawled_status == "취소" and existing_booking.status != BookingStatus.CANCELLED:
                     existing_booking.status = BookingStatus.CANCELLED
                     self.db.commit()
@@ -89,15 +90,17 @@ class BookingManager:
 
             # 초기 상태 결정
             today = now_kst().date()
-            crawled_status = booking_data.get("booking_status", "").strip()
 
-            # 1. 크롤링한 상태가 체크인 완료면 CHECKED_IN으로 저장
-            if crawled_status in ["체크인 완료", "checked_in", "입실완료", "입실"]:
+            # 1. 취소 상태면 CANCELLED로 저장
+            if crawled_status == "취소":
+                initial_status = BookingStatus.CANCELLED
+            # 2. 크롤링한 상태가 체크인 완료면 CHECKED_IN으로 저장
+            elif crawled_status in ["체크인 완료", "checked_in", "입실완료", "입실"]:
                 initial_status = BookingStatus.CHECKED_IN
-            # 2. 체크인 날짜가 오늘보다 이전이면 이미 입실한 것으로 간주
+            # 3. 체크인 날짜가 오늘보다 이전이면 이미 입실한 것으로 간주
             elif check_in_date < today:
                 initial_status = BookingStatus.CHECKED_IN
-            # 3. 그 외에는 신규 예약
+            # 4. 그 외에는 신규 예약
             else:
                 initial_status = BookingStatus.NEW
 
@@ -137,9 +140,9 @@ class BookingManager:
 
     def create_sms_logs_for_booking(self, booking: Booking) -> List[SMSLog]:
         try:
-            # 이미 체크인한 예약은 SMS를 보내지 않음
-            if booking.status == BookingStatus.CHECKED_IN:
-                logger.info(f"[skip] {booking.guest_name} - 이미 체크인 완료된 예약이므로 SMS 생성하지 않음")
+            # 체크인 완료 또는 취소된 예약은 SMS를 보내지 않음
+            if booking.status in [BookingStatus.CHECKED_IN, BookingStatus.CANCELLED]:
+                logger.info(f"[skip] {booking.guest_name} - {booking.status.value} 상태이므로 SMS 생성하지 않음")
                 return []
 
             existing_logs = (

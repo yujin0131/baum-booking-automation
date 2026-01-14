@@ -223,6 +223,7 @@ logs/
 ## HTML 테스트 파일 (템플릿 제외)
 sample_booking_page.html
 test_*.html
+debug_crawl.html
 
 # Virtual environment (project specific)
 staytuned_venv/

@@ -140,28 +140,39 @@ class SmartplaceCrawler:
                     logger.error("재로그인 후에도 로그인 페이지, 중단")
                     return None, False
 
-            # "오늘이용" 필터 클릭
+            # "오늘이용" 필터 클릭 (재시도 로직 포함)
             filter_applied = False
-            try:
-                today_button = await self.auth.page.query_selector("input.BookingListView__btn-quick-filter__pdKer[value*='오늘이용']")
-                if today_button:
-                    await today_button.click()
-                    await self.auth._random_delay(2000, 3000)
-                    logger.info("'오늘이용' 필터 적용 성공")
-                    filter_applied = True
-            except Exception as e:
-                logger.warning(f"'오늘이용' 필터 클릭 실패, 파싱 단계에서 필터링: {e}")
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    # 버튼이 DOM에 나타날 때까지 대기
+                    today_button = await self.auth.page.wait_for_selector(
+                        "input[value*='오늘이용']",
+                        timeout=5000,
+                        state="attached"
+                    )
+                    if today_button:
 
-            # outerHTML 가져오기
+                        await self.auth._random_delay(500, 1000)
+                        await today_button.click()
+
+                        await self.auth._random_delay(2000, 3000)
+                        logger.info("'오늘이용' 필터 적용 성공")
+                        filter_applied = True
+                        break
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        logger.debug(f"'오늘이용' 필터 클릭 재시도 {attempt + 1}/{max_retries}: {e}")
+                        await self.auth._random_delay(1000, 2000)
+                    else:
+                        logger.warning(f"'오늘이용' 필터 클릭 실패, 파싱 단계에서 필터링: {e}")
+
             outer_html = await self.auth.page.evaluate("document.documentElement.outerHTML")
             logger.info(f"크롤링 완료: {len(outer_html)} bytes")
-
-            # 디버그: HTML 파일로 저장
-            with open("debug_crawl.html", "w", encoding="utf-8") as f:
-                f.write(outer_html)
-            logger.info("HTML saved to debug_crawl.html")
-
-            # 메모리 정리: 페이지 컨텍스트 클리어
+           # 디버그: HTML 파일로 저장
+            # with open("debug_crawl.html", "w", encoding="utf-8") as f:
+            #     f.write(outer_html)
+            # logger.info("HTML saved to debug_crawl.html")
             await self.auth.page.evaluate("() => { document.body.innerHTML = ''; }")
 
             return outer_html, filter_applied
