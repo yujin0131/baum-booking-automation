@@ -16,9 +16,17 @@ CRAWLING_FILE = CONFIG_DIR / "crawling.yaml"
 class AccommodationConfig:
     room_passwords: Dict[str, str]
     default_password: str
+    room_template_mapping: Dict[str, str]
 
     def get_room_password(self, room_number: str) -> str:
         return self.room_passwords.get(str(room_number), self.default_password)
+
+    def get_checkin_template_key(self, room_number: str) -> str:
+        """객실 번호에 따른 체크인 안내 템플릿 키 반환"""
+        return self.room_template_mapping.get(
+            str(room_number),
+            self.room_template_mapping.get("default", "check_in_guide_normal")
+        )
 
 
 @dataclass
@@ -120,6 +128,7 @@ class ConfigManager:
         return AccommodationConfig(
             room_passwords=data.get("room_passwords", {}),
             default_password=data.get("default_password", "0000"),
+            room_template_mapping=data.get("room_template_mapping", {"default": "check_in_guide_normal"}),
         )
 
     def _load_sms_templates(self) -> SMSTemplatesConfig:

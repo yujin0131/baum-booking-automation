@@ -14,10 +14,7 @@ from src.models import SessionLocal, get_session
 # from src.services.sms_sender import SMSSender
 from src.services.kakao_sender import KakaoSender
 from src.services.booking_manager import BookingManager
-
-# 크롤링 간격 (분)
-SCRAPE_MIN_INTERVAL = 8
-SCRAPE_MAX_INTERVAL = 13
+from src.utils.constants import SCRAPE_MIN_INTERVAL_MINUTES, SCRAPE_MAX_INTERVAL_MINUTES
 
 
 class BookingScheduler:
@@ -54,7 +51,7 @@ class BookingScheduler:
 
     def _get_random_scrape_interval(self) -> int:
         """8-13분 사이 랜덤 간격 반환"""
-        return random.randint(SCRAPE_MIN_INTERVAL, SCRAPE_MAX_INTERVAL)
+        return random.randint(SCRAPE_MIN_INTERVAL_MINUTES, SCRAPE_MAX_INTERVAL_MINUTES)
 
     def _schedule_next_scrape(self, first_run: bool = False):
         """다음 크롤링 작업을 랜덤 간격으로 스케줄링"""
@@ -84,7 +81,7 @@ class BookingScheduler:
             # 첫 실행은 즉시, 이후 랜덤 간격
             self._schedule_next_scrape(first_run=True)
             logger.info(
-                f"Job registered: scrape bookings (random {SCRAPE_MIN_INTERVAL}-{SCRAPE_MAX_INTERVAL} min)"
+                f"Job registered: scrape bookings (random {SCRAPE_MIN_INTERVAL_MINUTES}-{SCRAPE_MAX_INTERVAL_MINUTES} min)"
             )
 
             self.scheduler.add_job(

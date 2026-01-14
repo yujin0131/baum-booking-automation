@@ -8,13 +8,13 @@ from loguru import logger
 from src.services.naver_auth import NaverAuth
 from src.services.html_file_scraper import HtmlFileScraper
 from config.settings import settings
+from src.utils.constants import BROWSER_RESTART_INTERVAL, PAGE_LOAD_MIN_DELAY_MS, PAGE_LOAD_MAX_DELAY_MS
 
 
 class SmartplaceCrawler:
     """네이버 스마트플레이스 이용 내역 크롤러"""
 
     SESSION_FILE = "naver_session.json"
-    BROWSER_RESTART_INTERVAL = 1  # 매 크롤링마다 브라우저 재시작 (메모리 누수 방지)
 
     def __init__(self, username: str = None, password: str = None, headless: bool = True):
         self.username = username or settings.naver_id
@@ -86,7 +86,7 @@ class SmartplaceCrawler:
         try:
             # 주기적 브라우저 재시작 (메모리 누수 방지)
             self._crawl_count += 1
-            if self._crawl_count >= self.BROWSER_RESTART_INTERVAL:
+            if self._crawl_count >= BROWSER_RESTART_INTERVAL:
                 logger.info(f"브라우저 재시작 (크롤링 {self._crawl_count}회)")
                 if self.auth:
                     await self.auth.close()
@@ -102,7 +102,7 @@ class SmartplaceCrawler:
             logger.info(f"페이지 이동: {url}")
 
             await self.auth.page.goto(url, wait_until="domcontentloaded", timeout=60000)
-            await self.auth._random_delay(3000, 5000)  # 페이지 로딩 대기
+            await self.auth._random_delay(PAGE_LOAD_MIN_DELAY_MS, PAGE_LOAD_MAX_DELAY_MS)  # 페이지 로딩 대기
 
             # 로그인 페이지로 리다이렉트 확인 (세션 만료 감지)
             current_url = self.auth.page.url
@@ -132,7 +132,7 @@ class SmartplaceCrawler:
 
                 # 예약 페이지 다시 이동
                 await self.auth.page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                await self.auth._random_delay(3000, 5000)
+                await self.auth._random_delay(PAGE_LOAD_MIN_DELAY_MS, PAGE_LOAD_MAX_DELAY_MS)
 
                 # 재확인
                 current_url = self.auth.page.url
@@ -213,6 +213,9 @@ class SmartplaceCrawler:
             filter_today: True이면 오늘 체크인 예약만 필터링
         """
         try:
+            # 크롤링 설정 리로드 (CSS 셀렉터 변경 감지)
+            from src.utils.config_loader import config
+            config.check_and_reload_if_changed()
             soup = BeautifulSoup(html, "html.parser")
             rows = soup.select("[class*='BookingListView__contents-user']")
 

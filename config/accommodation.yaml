@@ -13,3 +13,9 @@ room_passwords:
   "207": "7021"
 
 default_password: "0000"
+
+# 객실별 체크인 안내 템플릿 매핑
+room_template_mapping:
+  "103": "check_in_guide_female_dorm"  # 여성 도미토리
+  "205": "check_in_guide_male_dorm"    # 남성 도미토리
+  default: "check_in_guide_normal"      # 일반 객실

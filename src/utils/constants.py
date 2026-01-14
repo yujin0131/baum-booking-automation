@@ -44,6 +44,17 @@ SMS_BATCH_DELAY_SECONDS = 0.1
 SCRAPER_DEFAULT_TIMEOUT = 30000
 SCRAPER_MAX_RETRIES = 3
 
+# 크롤링 스케줄 설정
+SCRAPE_MIN_INTERVAL_MINUTES = 8
+SCRAPE_MAX_INTERVAL_MINUTES = 13
+
+# 페이지 로딩 딜레이 (밀리초)
+PAGE_LOAD_MIN_DELAY_MS = 3000
+PAGE_LOAD_MAX_DELAY_MS = 5000
+
+# 크롤러 메모리 관리
+BROWSER_RESTART_INTERVAL = 1  # 매 크롤링마다 브라우저 재시작
+
 
 def get_room_password(room_number: str) -> str:
     """객실 비밀번호 조회"""

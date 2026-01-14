@@ -48,6 +48,10 @@ class HtmlFileScraper:
             return []
 
         try:
+            # 크롤링 설정 리로드 (CSS 셀렉터 변경 감지)
+            config.check_and_reload_if_changed()
+            self._crawling_config = config.crawling
+
             logger.info("Extracting bookings...")
 
             rows = self.soup.select("[class*='BookingListView__contents-user']")

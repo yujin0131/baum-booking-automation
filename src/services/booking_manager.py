@@ -175,12 +175,10 @@ class BookingManager:
             # 객실별 체크인 안내 템플릿 선택
             templates = self._get_sms_templates()
 
-            if booking.room_number == "103":
-                checkin_template_key = "check_in_guide_female_dorm"
-            elif booking.room_number == "205":
-                checkin_template_key = "check_in_guide_male_dorm"
-            else:
-                checkin_template_key = "check_in_guide_normal"
+            # 설정 파일에서 객실별 템플릿 조회
+            from src.utils.config_loader import config
+            config.check_and_reload_if_changed()
+            checkin_template_key = config.accommodation.get_checkin_template_key(booking.room_number)
 
             # 템플릿별 실제 필요한 변수만 정의
             TEMPLATE_VARS = {
@@ -247,13 +245,6 @@ class BookingManager:
 
             # 104호 애견옵션 감지 및 추가 SMS 생성
             if booking.room_number == "104" and booking.pet_option:
-                pet_template = templates.get("pet_info", "")
-                try:
-                    pet_message = pet_template.format(**kakao_vars)
-                except KeyError as e:
-                    logger.warning(f"[Warn] {e}, default pet template")
-                    pet_message = pet_template
-
                 pet_time = guide_time + timedelta(minutes=2) if not is_immediate_send else now + timedelta(minutes=2)
                 pet_template_code = self._get_kakao_template_code("pet_info")
 
@@ -261,7 +252,7 @@ class BookingManager:
                     booking_id=booking.id,
                     sms_type=SMSType.FACILITY_INFO,
                     recipient_phone=booking.guest_phone,
-                    message_content=pet_message,
+                    message_content=templates.get("pet_info", ""),
                     template_key="pet_info",
                     template_code=pet_template_code,
                     template_vars=None,  # pet_info는 변수 없음
