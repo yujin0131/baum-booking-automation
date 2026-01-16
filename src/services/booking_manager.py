@@ -65,11 +65,46 @@ class BookingManager:
             crawled_status = booking_data.get("booking_status", "").strip()
 
             if existing_booking:
-                # 크롤링한 상태가 "취소"면 DB 상태 업데이트
+                # 크롤링한 상태가 "취소"면 DB 상태를 CANCELLED로 업데이트
                 if crawled_status == "취소" and existing_booking.status != BookingStatus.CANCELLED:
                     existing_booking.status = BookingStatus.CANCELLED
                     self.db.commit()
                     logger.info(f"[cancelled] {existing_booking.guest_name} 예약 취소 처리")
+
+                # 취소 상태였던 예약이 재예약된 경우 상태 복구 및 정보 업데이트
+                elif crawled_status != "취소" and existing_booking.status == BookingStatus.CANCELLED:
+                    # 체크인 날짜와 시간 파싱
+                    check_in_date = booking_data.get("check_in_date")
+                    if isinstance(check_in_date, str):
+                        from src.utils.datetime_utils import parse_date
+                        check_in_date = parse_date(check_in_date)
+
+                    today = now_kst().date()
+
+                    # 새로운 상태 결정
+                    if crawled_status in ["체크인 완료", "checked_in", "입실완료", "입실"]:
+                        new_status = BookingStatus.CHECKED_IN
+                    elif check_in_date < today:
+                        new_status = BookingStatus.CHECKED_IN
+                    else:
+                        new_status = BookingStatus.NEW
+
+                    # 예약 정보 업데이트
+                    existing_booking.status = new_status
+                    existing_booking.guest_name = booking_data.get("guest_name") or existing_booking.guest_name
+                    existing_booking.guest_phone = booking_data.get("guest_phone") or existing_booking.guest_phone
+                    existing_booking.guest_count = booking_data.get("guest_count", existing_booking.guest_count)
+                    existing_booking.check_in_date = check_in_date or existing_booking.check_in_date
+                    existing_booking.check_out_date = booking_data.get("check_out_date") or existing_booking.check_out_date
+                    existing_booking.room_type = booking_data.get("room_type") or existing_booking.room_type
+                    existing_booking.room_number = booking_data.get("room_number") or existing_booking.room_number
+                    existing_booking.special_request = booking_data.get("special_request") or existing_booking.special_request
+                    existing_booking.pet_option = booking_data.get("pet_option", existing_booking.pet_option)
+
+                    self.db.commit()
+                    logger.success(f"[re-booked] {existing_booking.guest_name} 취소 후 재예약 처리 (상태: {new_status.value})")
+
+                # 그 외의 경우는 이미 처리된 예약
                 else:
                     logger.debug(f"[skip] {naver_booking_id} is already.")
                 return existing_booking
