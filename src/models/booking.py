@@ -29,9 +29,10 @@ class SMSStatus(str, enum.Enum):
 
 
 class SMSType(str, enum.Enum):
-    CHECK_IN_GUIDE = "check_in_guide"
-    FACILITY_INFO = "facility_info"
+    CHECK_IN_GUIDE = "check_in_guide" # 체크인 안내
+    FACILITY_INFO = "facility_info"  # 포틀럭파티 안내
     POTLUCK_DAILY = "potluck_daily"  # 연박자 매일 포틀럭 안내
+    PET_INFO = "pet_info"  # 애견동반 안내
 
 
 class KakaoTemplate(Base):

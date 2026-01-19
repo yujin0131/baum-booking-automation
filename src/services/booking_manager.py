@@ -288,7 +288,7 @@ class BookingManager:
 
                 pet_sms_log = SMSLog(
                     booking_id=booking.id,
-                    sms_type=SMSType.FACILITY_INFO,
+                    sms_type=SMSType.PET_INFO,
                     recipient_phone=booking.guest_phone,
                     message_content=templates.get("pet_info", ""),
                     template_key="pet_info",

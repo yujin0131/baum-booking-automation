@@ -13,9 +13,10 @@ def _get_config():
 
 # SMS 타입
 SMS_TYPE_CHECK_IN_GUIDE = "check_in_guide"
-SMS_TYPE_FACILITY_INFO = "facility_info"
+SMS_TYPE_FACILITY_INFO = "facility_info"  # 포틀럭파티 안내
 SMS_TYPE_POTLUCK_DAILY = "potluck_daily"  # 연박자 매일 포틀럭 안내
-SMS_TYPES = [SMS_TYPE_CHECK_IN_GUIDE, SMS_TYPE_FACILITY_INFO, SMS_TYPE_POTLUCK_DAILY]
+SMS_TYPE_PET_INFO = "pet_info"  # 애견동반 안내
+SMS_TYPES = [SMS_TYPE_CHECK_IN_GUIDE, SMS_TYPE_FACILITY_INFO, SMS_TYPE_POTLUCK_DAILY, SMS_TYPE_PET_INFO]
 
 # SMS 상태
 SMS_STATUS_PENDING = "pending"
