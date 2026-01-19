@@ -241,12 +241,11 @@ class KakaoSender:
             "messages": [{
                 "to": recipient,
                 "from": self.sender,
+                "text": message,
                 "kakaoOptions": {
                     "pfId": self.pf_id,
                     "disableSms": False
-                },
-                "type": "FT",
-                "text": message
+                }
             }]
         }
 

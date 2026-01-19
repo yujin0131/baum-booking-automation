@@ -28,7 +28,6 @@ class Settings(BaseSettings):
     admin_phone: str = Field(..., description="Admin phone for alerts")
     statistics_phone: str = Field(default="", description="Phone number for daily statistics (defaults to admin_phone)")
 
-    scrape_interval_minutes: int = Field(default=5, ge=1, le=60)
     check_in_time: str = Field(default="15:00", pattern=r"^\d{2}:\d{2}$")
 
     log_level: str = Field(default="INFO")

@@ -114,12 +114,12 @@ class BookingScheduler:
 
             self.scheduler.add_job(
                 self.send_daily_room_statistics,
-                trigger=CronTrigger(hour=15, minute=30),
+                trigger=CronTrigger(hour=9, minute=0),
                 id="daily_statistics",
                 name="Daily room statistics",
                 replace_existing=True,
             )
-            logger.info("Job registered: daily statistics")
+            logger.info("Job registered: daily statistics (00:00)")
 
             self.scheduler.start()
             logger.success("Scheduler started")
@@ -426,13 +426,20 @@ class BookingScheduler:
 
     async def send_daily_room_statistics(self):
         """
-        매일 오후 3시 30분에 관리자에게 입실/퇴실/연박 통계 발송
+        매일 자정에 크롤링 후 관리자에게 입실/퇴실/연박 통계 발송
         """
         try:
             logger.info("=" * 60)
             logger.info("Daily room statistics started")
             logger.info("=" * 60)
 
+            # 1. 먼저 크롤링으로 최신 예약 정보 갱신
+            logger.info("Step 1: Scraping latest bookings...")
+            await self.scrape_and_process_bookings()
+            logger.info("Scraping completed")
+
+            # 2. 통계 메시지 생성 및 발송
+            logger.info("Step 2: Generating and sending statistics...")
             with get_session() as db:
                 booking_manager = BookingManager(db)
 
