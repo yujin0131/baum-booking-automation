@@ -74,32 +74,30 @@ async def dashboard(request: Request):
 @app.get("/bookings", response_class=HTMLResponse)
 async def bookings_page(request: Request, filter: Optional[str] = None):
     with get_session() as db:
-        query = db.query(Booking)
+        booking_manager = BookingManager(db)
         today = now_kst().date()
-        today_start = datetime.combine(today, datetime.min.time())
-        today_end = datetime.combine(today, datetime.max.time())
 
         if filter == "check_in":
             # 오늘 입실
-            query = query.filter(
-                Booking.check_in_date == today,
-                Booking.status != BookingStatus.CANCELLED
-            )
+            bookings = booking_manager.get_check_ins_for_date(today)
         elif filter == "check_out":
             # 오늘 퇴실
-            query = query.filter(
-                Booking.check_out_date == today,
-                Booking.status != BookingStatus.CANCELLED
-            )
+            bookings = booking_manager.get_check_outs_for_date(today)
         elif filter == "long_stay":
             # 연박 (2박 이상 = 퇴실일 - 입실일 > 1)
             from sqlalchemy import func
-            query = query.filter(
+            query = db.query(Booking).filter(
                 func.julianday(Booking.check_out_date) - func.julianday(Booking.check_in_date) > 1,
                 Booking.status != BookingStatus.CANCELLED
             )
+            bookings = query.order_by(Booking.check_in_date.desc()).all()
+        else:
+            # 전체 조회
+            bookings = db.query(Booking).order_by(Booking.check_in_date.desc()).all()
 
-        bookings = query.order_by(Booking.check_in_date.desc()).all()
+        # 입실/퇴실 필터의 경우 정렬 유지
+        if filter in ["check_in", "check_out"]:
+            bookings = sorted(bookings, key=lambda b: b.check_in_date, reverse=True)
 
         return templates.TemplateResponse("bookings.html", {
             "request": request,

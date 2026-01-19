@@ -17,6 +17,7 @@ class AccommodationConfig:
     room_passwords: Dict[str, str]
     default_password: str
     room_template_mapping: Dict[str, str]
+    room_names: Dict[str, str]
 
     def get_room_password(self, room_number: str) -> str:
         return self.room_passwords.get(str(room_number), self.default_password)
@@ -27,6 +28,10 @@ class AccommodationConfig:
             str(room_number),
             self.room_template_mapping.get("default", "check_in_guide_normal")
         )
+
+    def get_room_name(self, room_number: str) -> str:
+        """객실 번호에 따른 방 이름 반환"""
+        return self.room_names.get(str(room_number), "일반실")
 
 
 @dataclass
@@ -129,6 +134,7 @@ class ConfigManager:
             room_passwords=data.get("room_passwords", {}),
             default_password=data.get("default_password", "0000"),
             room_template_mapping=data.get("room_template_mapping", {"default": "check_in_guide_normal"}),
+            room_names=data.get("room_names", {}),
         )
 
     def _load_sms_templates(self) -> SMSTemplatesConfig:

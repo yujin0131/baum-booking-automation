@@ -82,62 +82,38 @@ class KakaoSender:
 
         return True, None
 
-    async def send_alimtalk(
+    def _create_auth_headers(self) -> Dict[str, str]:
+        """HMAC 인증 헤더 생성"""
+        date = datetime.utcnow().isoformat() + "Z"
+        salt = secrets.token_hex(16)
+        signature = self._create_signature(date, salt)
+
+        return {
+            "Authorization": f"HMAC-SHA256 apiKey={self.api_key}, date={date}, salt={salt}, signature={signature}",
+            "Content-Type": "application/json"
+        }
+
+    async def _send_solapi_message(
         self,
-        recipient: str,
-        template_id: str,
-        variables: Dict,
+        payload: Dict,
+        message_type: str,
+        test_log: str
     ) -> Dict:
-        """Solapi를 통한 카카오 알림톡 발송"""
+        """Solapi 메시지 공통 발송 로직"""
         try:
-            # 전화번호 포맷 정리
-            recipient = recipient.replace("-", "").replace(" ", "")
-
-            # 변수 포맷 변환 (guest_name -> #{guest_name})
-            kakao_variables = {}
-            for key, value in variables.items():
-                kakao_key = f"#{{{key}}}" if not key.startswith("#{") else key
-                kakao_variables[kakao_key] = str(value)
-
-            # HMAC 인증 헤더 생성
-            date = datetime.utcnow().isoformat() + "Z"
-            salt = secrets.token_hex(16)
-            signature = self._create_signature(date, salt)
-
-            headers = {
-                "Authorization": f"HMAC-SHA256 apiKey={self.api_key}, date={date}, salt={salt}, signature={signature}",
-                "Content-Type": "application/json"
-            }
-
-            # 요청 페이로드
-            payload = {
-                "messages": [{
-                    "to": recipient,
-                    "from": self.sender,
-                    "kakaoOptions": {
-                        "pfId": self.pf_id,
-                        "templateId": template_id,
-                        "variables": kakao_variables,
-                        "disableSms": False  # 실패 시 SMS 대체발송
-                    }
-                }]
-            }
-
-            # 테스트 모드: 로그만 출력
+            # 테스트 모드
             if self.test_mode:
-                logger.info(
-                    f"[TEST MODE] Alimtalk to {recipient} "
-                    f"(template: {template_id}, vars: {kakao_variables})"
-                )
+                logger.info(f"[TEST MODE] {test_log}")
                 return {
                     "success": True,
-                    "provider": "solapi_kakao",
+                    "provider": f"solapi_{message_type}",
                     "test_mode": True,
                     "response": {"groupId": "TEST_GROUP_ID"},
-                    "message_id": "TEST_ALIMTALK_ID",
+                    "message_id": f"TEST_{message_type.upper()}_ID",
                 }
 
-            # 실제 알림톡 발송
+            # 실제 발송
+            headers = self._create_auth_headers()
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     self.api_url,
@@ -147,48 +123,81 @@ class KakaoSender:
                 )
                 response_data = response.json()
 
+            # 응답 처리
             if response.status_code == 200:
                 group_id = response_data.get("groupId")
 
-                # 개별 메시지 실패 여부 확인
+                # 개별 메시지 실패 확인
                 failed_list = response_data.get("failedMessageList", [])
                 if failed_list:
-                    # 실패한 메시지가 있으면 실패로 처리
-                    failed_msg = failed_list[0] if failed_list else {}
+                    failed_msg = failed_list[0]
                     error_code = failed_msg.get("statusCode", "unknown")
                     error_msg = failed_msg.get("statusMessage", "Unknown error")
-                    logger.error(f"Alimtalk failed: [{error_code}] {error_msg}")
+                    logger.error(f"{message_type} failed: [{error_code}] {error_msg}")
                     return {
                         "success": False,
-                        "provider": "solapi_kakao",
+                        "provider": f"solapi_{message_type}",
                         "error": f"[{error_code}] {error_msg}",
                         "response": response_data,
                     }
 
-                logger.info(f"Alimtalk sent to {recipient} (groupId: {group_id}, template: {template_id})")
+                logger.info(f"{message_type} sent (groupId: {group_id})")
                 return {
                     "success": True,
-                    "provider": "solapi_kakao",
+                    "provider": f"solapi_{message_type}",
                     "response": response_data,
                     "message_id": group_id,
                 }
             else:
                 error_msg = response_data.get("errorMessage", str(response_data))
-                logger.error(f"Alimtalk failed: {error_msg}")
+                logger.error(f"{message_type} failed: {error_msg}")
                 return {
                     "success": False,
-                    "provider": "solapi_kakao",
+                    "provider": f"solapi_{message_type}",
                     "error": error_msg,
                     "response": response_data,
                 }
 
         except httpx.TimeoutException:
-            logger.error("[Error] Solapi Kakao timeout")
+            logger.error(f"[Error] Solapi {message_type} timeout")
             return {"success": False, "error": "Request timeout"}
 
         except Exception as e:
-            logger.error(f"[Error] Solapi Kakao exception: {e}")
+            logger.error(f"[Error] Solapi {message_type} exception: {e}")
             return {"success": False, "error": str(e)}
+
+    async def send_alimtalk(
+        self,
+        recipient: str,
+        template_id: str,
+        variables: Dict,
+    ) -> Dict:
+        """Solapi를 통한 카카오 알림톡 발송"""
+        # 전화번호 포맷 정리
+        recipient = recipient.replace("-", "").replace(" ", "")
+
+        # 변수 포맷 변환 (guest_name -> #{guest_name})
+        kakao_variables = {}
+        for key, value in variables.items():
+            kakao_key = f"#{{{key}}}" if not key.startswith("#{") else key
+            kakao_variables[kakao_key] = str(value)
+
+        # 요청 페이로드
+        payload = {
+            "messages": [{
+                "to": recipient,
+                "from": self.sender,
+                "kakaoOptions": {
+                    "pfId": self.pf_id,
+                    "templateId": template_id,
+                    "variables": kakao_variables,
+                    "disableSms": False
+                }
+            }]
+        }
+
+        test_log = f"To {recipient} (template: {template_id}, vars: {kakao_variables})"
+        return await self._send_solapi_message(payload, "alimtalk", test_log)
 
     async def send_template(
         self,
@@ -218,14 +227,39 @@ class KakaoSender:
             variables=variables,
         )
 
-    async def send_admin_alert(self, message: str) -> Dict:
-        """관리자 알림 발송 (로그만 출력)"""
-        logger.info(f"[ADMIN ALERT] {message}")
-        return {
-            "success": True,
-            "provider": "log_only",
-            "message": message
+    async def send_friendtalk(
+        self,
+        recipient: str,
+        message: str,
+    ) -> Dict:
+        """Solapi를 통한 카카오 친구톡 발송"""
+        # 전화번호 포맷 정리
+        recipient = recipient.replace("-", "").replace(" ", "")
+
+        # 요청 페이로드
+        payload = {
+            "messages": [{
+                "to": recipient,
+                "from": self.sender,
+                "kakaoOptions": {
+                    "pfId": self.pf_id,
+                    "disableSms": False
+                },
+                "type": "FT",
+                "text": message
+            }]
         }
+
+        test_log = f"To {recipient}\nMessage: {message[:100]}..."
+        return await self._send_solapi_message(payload, "friendtalk", test_log)
+
+    async def send_admin_alert(self, message: str) -> Dict:
+        """관리자 알림 발송"""
+        logger.info(f"[Admin Alert] {message}")
+        return await self.send_friendtalk(
+            recipient=settings.admin_phone,
+            message=f"[Alert] {message}"
+        )
 
     def get_template_info(self, template_key: str) -> Optional[Dict]:
         """템플릿 상세 정보 조회"""

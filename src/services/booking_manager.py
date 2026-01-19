@@ -73,7 +73,7 @@ class BookingManager:
 
                 # 취소 상태였던 예약이 재예약된 경우 상태 복구 및 정보 업데이트
                 elif crawled_status != "취소" and existing_booking.status == BookingStatus.CANCELLED:
-                    # 체크인 날짜와 시간 파싱
+
                     check_in_date = booking_data.get("check_in_date")
                     if isinstance(check_in_date, str):
                         from src.utils.datetime_utils import parse_date
@@ -268,10 +268,10 @@ class BookingManager:
                     sms_type=SMSType(sms_type),
                     recipient_phone=booking.guest_phone,
                     message_content=message,
-                    template_key=template_key,  # 템플릿 키 저장
-                    template_code=template_code,  # Solapi 템플릿 코드 저장
-                    template_vars=template_vars_json,  # 템플릿 변수 저장 (JSON)
-                    status=SMSStatus.SCHEDULED,  # 스케줄링된 상태로 생성
+                    template_key=template_key,
+                    template_code=template_code,
+                    template_vars=template_vars_json,
+                    status=SMSStatus.SCHEDULED,
                     scheduled_time=sms_scheduled_time,
                     sent_time=None,
                     retry_count=0,
@@ -293,7 +293,7 @@ class BookingManager:
                     message_content=templates.get("pet_info", ""),
                     template_key="pet_info",
                     template_code=pet_template_code,
-                    template_vars=None,  # pet_info는 변수 없음
+                    template_vars=None,
                     status=SMSStatus.SCHEDULED,
                     scheduled_time=pet_time,
                     retry_count=0,
@@ -405,6 +405,55 @@ class BookingManager:
             query = query.options(joinedload(Booking.sms_logs))
         return query.filter(Booking.status == status).all()
 
+    def get_check_ins_for_date(self, date) -> List[Booking]:
+        """특정 날짜의 입실 예약 조회"""
+        try:
+            bookings = (
+                self.db.query(Booking)
+                .filter(
+                    Booking.check_in_date == date,
+                    Booking.status.notin_([BookingStatus.CANCELLED, BookingStatus.CHECKED_OUT])
+                )
+                .all()
+            )
+            return bookings
+        except Exception as e:
+            logger.error(f"[Error] get_check_ins_for_date: {e}")
+            return []
+
+    def get_check_outs_for_date(self, date) -> List[Booking]:
+        """특정 날짜의 퇴실 예약 조회"""
+        try:
+            bookings = (
+                self.db.query(Booking)
+                .filter(
+                    Booking.check_out_date == date,
+                    Booking.status != BookingStatus.CANCELLED
+                )
+                .all()
+            )
+            return bookings
+        except Exception as e:
+            logger.error(f"[Error] get_check_outs_for_date: {e}")
+            return []
+
+    def get_multi_nights_for_date(self, date) -> List[Booking]:
+        """특정 날짜 기준 연박자 조회: check_in_date < date < check_out_date"""
+        try:
+            bookings = (
+                self.db.query(Booking)
+                .filter(
+                    Booking.check_in_date < date,
+                    Booking.check_out_date > date,
+                    Booking.status.notin_([BookingStatus.CANCELLED, BookingStatus.CHECKED_OUT])
+                )
+                .all()
+            )
+            return bookings
+        except Exception as e:
+            logger.error(f"[Error] get_multi_nights_for_date: {e}")
+            return []
+
     def get_multi_night_guests_for_today(self) -> List[Booking]:
         """
         연박자 조회: 오늘이 체크인 날도 아니고 체크아웃 날도 아닌 중간 날짜인 게스트
@@ -416,9 +465,9 @@ class BookingManager:
             bookings = (
                 self.db.query(Booking)
                 .filter(
-                    Booking.check_in_date < today,  # 이미 체크인함
-                    Booking.check_out_date > today,  # 아직 체크아웃 전
-                    Booking.status.notin_([BookingStatus.CANCELLED, BookingStatus.CHECKED_OUT])  # 취소/퇴실 제외
+                    Booking.check_in_date < today,
+                    Booking.check_out_date > today,
+                    Booking.status.notin_([BookingStatus.CANCELLED, BookingStatus.CHECKED_OUT])
                 )
                 .options(joinedload(Booking.sms_logs))
                 .all()
@@ -463,14 +512,14 @@ class BookingManager:
             # SMS 로그 생성 (즉시 발송)
             sms_log = SMSLog(
                 booking_id=booking.id,
-                sms_type=SMSType.POTLUCK_DAILY,  # 연박자 매일 발송용 타입
+                sms_type=SMSType.POTLUCK_DAILY,
                 recipient_phone=booking.guest_phone,
                 message_content=facility_template,
                 template_key="facility_info",
                 template_code=template_code,
-                template_vars=None,  # facility_info는 변수 없음
+                template_vars=None,
                 status=SMSStatus.SCHEDULED,
-                scheduled_time=now_kst(),  # 즉시 발송
+                scheduled_time=now_kst(),
                 retry_count=0,
                 max_retries=settings.max_retries,
             )
@@ -486,3 +535,75 @@ class BookingManager:
             logger.error(f"[Error] create_daily_potluck_sms: {e}")
             self.db.rollback()
             return None
+
+    def generate_daily_room_statistics(self) -> str:
+        """
+        오늘 날짜 기준으로 입실/퇴실/연박 통계를 방별로 집계하여 문자 메시지 생성
+
+        Returns:
+            입실/퇴실/연박 통계 문자 메시지
+        """
+        try:
+            today = now_kst().date()
+
+            # 방 이름 매핑 가져오기
+            from src.utils.config_loader import config
+            config.check_and_reload_if_changed()
+            room_names = config.accommodation.room_names
+
+            # 기존 메서드 재사용
+            check_ins = self.get_check_ins_for_date(today)
+            check_outs = self.get_check_outs_for_date(today)
+            multi_nights = self.get_multi_nights_for_date(today)
+
+            # 방별 인원수 집계
+            def aggregate_by_room(bookings: List[Booking]) -> Dict[str, int]:
+                """방별로 게스트 수 집계"""
+                room_stats = {}
+                for booking in bookings:
+                    room_number = booking.room_number or "미정"
+                    guest_count = booking.guest_count or 1
+
+                    if room_number not in room_stats:
+                        room_stats[room_number] = 0
+                    room_stats[room_number] += guest_count
+
+                return room_stats
+
+            check_in_stats = aggregate_by_room(check_ins)
+            check_out_stats = aggregate_by_room(check_outs)
+            multi_night_stats = aggregate_by_room(multi_nights)
+
+            # 메시지 생성
+            def format_stats(stats: Dict[str, int], room_names: Dict[str, str]) -> str:
+                """통계를 형식화된 문자열로 변환"""
+                if not stats:
+                    return "없음"
+
+                lines = []
+                # 방 번호 순서대로 정렬
+                for room_number in sorted(stats.keys(), key=lambda x: x if x != "미정" else "999"):
+                    count = stats[room_number]
+                    room_name = room_names.get(room_number, "일반실")
+                    lines.append(f"ROOM {room_number} <{room_name}>: {count}")
+
+                return "\n".join(lines)
+
+            message = f"""입실:
+{format_stats(check_in_stats, room_names)}
+
+퇴실:
+{format_stats(check_out_stats, room_names)}
+
+연박:
+{format_stats(multi_night_stats, room_names)}"""
+
+            logger.info(f"[Statistics] 오늘 통계 생성 완료 - 입실: {len(check_ins)}건, 퇴실: {len(check_outs)}건, 연박: {len(multi_nights)}건")
+
+            return message
+
+        except Exception as e:
+            logger.error(f"[Error] generate_daily_room_statistics: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return "통계 생성 중 오류가 발생했습니다."
