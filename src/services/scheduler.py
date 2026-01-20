@@ -96,7 +96,7 @@ class BookingScheduler:
 
             self.scheduler.add_job(
                 self.daily_health_check,
-                trigger=CronTrigger(hour=9, minute=10),
+                trigger=CronTrigger(hour=9, minute=0),
                 id="health_check",
                 name="Daily health check",
                 replace_existing=True,
@@ -114,7 +114,7 @@ class BookingScheduler:
 
             self.scheduler.add_job(
                 self.send_daily_room_statistics,
-                trigger=CronTrigger(hour=9, minute=0),
+                trigger=CronTrigger(hour=9, minute=20),
                 id="daily_statistics",
                 name="Daily room statistics",
                 replace_existing=True,
