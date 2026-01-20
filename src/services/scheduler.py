@@ -96,7 +96,7 @@ class BookingScheduler:
 
             self.scheduler.add_job(
                 self.daily_health_check,
-                trigger=CronTrigger(hour=9, minute=0),
+                trigger=CronTrigger(hour=9, minute=10),
                 id="health_check",
                 name="Daily health check",
                 replace_existing=True,

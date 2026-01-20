@@ -40,13 +40,13 @@
                         <td>{{ sms.booking.guest_name if sms.booking else '-' }}</td>
                         <td>
                             {% if sms.sms_type.value == 'check_in_guide' %}
-                                <span class="badge bg-info">입실안내</span>
+                                <span class="badge badge-check-in">입실안내</span>
                             {% elif sms.sms_type.value == 'potluck_daily' %}
-                                <span class="badge bg-success">포틀럭(연박)</span>
+                                <span class="badge badge-potluck-daily">입실안내</span>
                             {% elif sms.sms_type.value == 'facility_info' %}
-                                <span class="badge bg-primary">포틀럭안내</span>
+                                <span class="badge badge-potluck">포틀럭안내</span>
                             {% elif sms.sms_type.value == 'pet_info' %}
-                                <span class="badge bg-warning">애견동반안내</span>
+                                <span class="badge badge-pet">애견동반안내</span>
                             {% else %}
                                 <span class="badge bg-secondary">{{ sms.sms_type.value }}</span>
                             {% endif %}
