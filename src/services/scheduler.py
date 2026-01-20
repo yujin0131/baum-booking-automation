@@ -114,7 +114,7 @@ class BookingScheduler:
 
             self.scheduler.add_job(
                 self.send_daily_room_statistics,
-                trigger=CronTrigger(hour=9, minute=20),
+                trigger=CronTrigger(hour=0, minute=0),
                 id="daily_statistics",
                 name="Daily room statistics",
                 replace_existing=True,
