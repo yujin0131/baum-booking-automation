@@ -176,7 +176,9 @@ class BookingScheduler:
 
                 if new_bookings_count > 0:
                     from src.models.booking import Booking
+                    from src.utils.datetime_utils import now_kst
 
+                    today = now_kst().date()
                     recent_bookings = (
                         db.query(Booking)
                         .order_by(Booking.id.desc())
@@ -184,11 +186,13 @@ class BookingScheduler:
                         .all()
                     )
 
+                    # 오늘 입실하는 예약 중 요청사항이 있는 것만 필터링
                     bookings_with_requests = [
-                        b for b in recent_bookings if b.special_request
+                        b for b in recent_bookings
+                        if b.special_request and b.check_in_date == today
                     ]
 
-                    # 요청사항이 있을 때만 알림 발송
+                    # 오늘 입실 + 요청사항이 있을 때만 알림 발송
                     if bookings_with_requests:
                         alert_msg = f"New bookings: {new_bookings_count}"
                         alert_msg += "\n\n요청사항:"
