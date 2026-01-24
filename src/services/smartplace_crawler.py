@@ -261,7 +261,7 @@ class SmartplaceCrawler:
             logger.error(f"파싱 오류: {e}")
             return []
 
-    async def get_bookings(self, target_url: Optional[str] = None) -> List[Dict]:
+    async def get_bookings(self, target_url: Optional[str] = None) -> Optional[List[Dict]]:
         """
         크롤링 + 파싱 한번에 수행
 
@@ -271,13 +271,13 @@ class SmartplaceCrawler:
         url = target_url or self.booking_url
         html, filter_applied = await self.crawl_booking_list(url)
         if not html:
-            return []
+            return None
 
         # 필터 클릭 실패 시 파싱 단계에서 오늘 날짜로 필터링
         return self.parse_bookings_from_html(html, filter_today=not filter_applied)
 
     # 기존 스케줄러 호환용 별칭
-    async def get_new_bookings(self) -> List[Dict]:
+    async def get_new_bookings(self) -> Optional[List[Dict]]:
         return await self.get_bookings()
 
     async def cleanup(self):

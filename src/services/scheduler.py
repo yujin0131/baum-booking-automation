@@ -24,6 +24,8 @@ class BookingScheduler:
         # self.sms_sender: Optional[SMSSender] = None
         self.kakao_sender: Optional[KakaoSender] = None
         self.test_mode = settings.use_test_mode
+        self._consecutive_failures = 0
+        self._max_failures_before_alert = 3
         logger.info(f"Scheduler init ({self.test_mode})")
 
     async def initialize(self):
@@ -151,6 +153,11 @@ class BookingScheduler:
 
             bookings_data = await self.scraper.get_new_bookings()
 
+            if bookings_data is None:
+                raise Exception("크롤링 실패: 결과가 None (브라우저 크래시 또는 네트워크 오류)")
+
+            self._consecutive_failures = 0
+
             if not bookings_data:
                 logger.info("No new bookings")
                 return
@@ -211,9 +218,22 @@ class BookingScheduler:
 
         except Exception as e:
             logger.error(f"[Error] Scrape job failed {e}", exc_info=True)
+            await self._handle_scrape_failure(str(e))
         finally:
             # 다음 크롤링 랜덤 간격으로 스케줄링
             self._schedule_next_scrape()
+
+    async def _handle_scrape_failure(self, error_message: str):
+        """크롤링 실패 처리 및 관리자 알림"""
+        self._consecutive_failures += 1
+        logger.warning(f"크롤링 연속 실패: {self._consecutive_failures}회")
+
+        if self._consecutive_failures >= self._max_failures_before_alert:
+            await self.kakao_sender.send_admin_alert(
+                f"[크롤링 장애] {self._consecutive_failures}회 연속 실패\n"
+                f"서버 확인 필요\n\n"
+                f"에러: {error_message[:80]}"
+            )
 
     async def send_pending_kakao(self):
         from src.utils.constants import SMS_BATCH_SIZE, SMS_BATCH_DELAY_SECONDS

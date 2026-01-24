@@ -124,16 +124,32 @@ class NaverAuth:
             ],
             # Firefox 메모리 최적화 설정
             firefox_user_prefs={
-                'browser.cache.disk.enable': False,  # 디스크 캐시 비활성화
-                'browser.cache.memory.enable': False,  # 메모리 캐시 비활성화
-                'browser.sessionstore.resume_from_crash': False,  # 세션 복구 비활성화
-                # 멀티프로세스 제한
+                'browser.cache.disk.enable': False,
+                'browser.cache.memory.enable': False,
+                'browser.cache.memory.capacity': 0,
+                'browser.sessionstore.resume_from_crash': False,
+                # 멀티프로세스 완전 비활성화
                 'dom.ipc.processCount': 1,
                 'dom.ipc.processCount.webIsolated': 0,
-                'fission.autostart': False,  # Site Isolation 비활성화
+                'fission.autostart': False,
                 'browser.tabs.remote.separatePrivilegedContentProcess': False,
                 'browser.tabs.remote.separatePrivilegedMozillaWebContentProcess': False,
-                'dom.ipc.plugins.enabled': False,  # 플러그인 프로세스 비활성화
+                'dom.ipc.plugins.enabled': False,
+                # 추가 메모리 최적화
+                'javascript.options.mem.max': 128 * 1024 * 1024,
+                'javascript.options.mem.gc_incremental': True,
+                'javascript.options.mem.gc_per_zone': True,
+                'image.mem.decode_bytes_at_a_time': 16384,
+                'media.memory_cache_max_size': 8192,
+                'gfx.canvas.accelerated': False,
+                'layers.acceleration.disabled': True,
+                'gfx.webrender.all': False,
+                'layout.css.devPixelsPerPx': '1.0',
+                # 네트워크 메모리 최적화
+                'network.buffer.cache.size': 4096,
+                'network.buffer.cache.count': 12,
+                'network.http.max-connections': 32,
+                'network.http.max-persistent-connections-per-server': 4,
             }
         )
 
@@ -305,16 +321,35 @@ class NaverAuth:
                     '--disable-dev-shm-usage',
                     '--disable-blink-features=AutomationControlled',
                 ],
+                # Firefox 메모리 최적화 설정 (저메모리 서버용)
                 firefox_user_prefs={
+                    # 캐시 완전 비활성화
                     'browser.cache.disk.enable': False,
                     'browser.cache.memory.enable': False,
+                    'browser.cache.memory.capacity': 0,
                     'browser.sessionstore.resume_from_crash': False,
+                    # 멀티프로세스 완전 비활성화
                     'dom.ipc.processCount': 1,
                     'dom.ipc.processCount.webIsolated': 0,
                     'fission.autostart': False,
                     'browser.tabs.remote.separatePrivilegedContentProcess': False,
                     'browser.tabs.remote.separatePrivilegedMozillaWebContentProcess': False,
                     'dom.ipc.plugins.enabled': False,
+                    # 추가 메모리 최적화
+                    'javascript.options.mem.max': 128 * 1024 * 1024,
+                    'javascript.options.mem.gc_incremental': True,
+                    'javascript.options.mem.gc_per_zone': True,
+                    'image.mem.decode_bytes_at_a_time': 16384,
+                    'media.memory_cache_max_size': 8192,
+                    'gfx.canvas.accelerated': False,
+                    'layers.acceleration.disabled': True,
+                    'gfx.webrender.all': False,
+                    'layout.css.devPixelsPerPx': '1.0',
+                    # 네트워크 메모리 최적화
+                    'network.buffer.cache.size': 4096,
+                    'network.buffer.cache.count': 12,
+                    'network.http.max-connections': 32,
+                    'network.http.max-persistent-connections-per-server': 4,
                 }
             )
             self.context = await self.browser.new_context(storage_state=filepath)
