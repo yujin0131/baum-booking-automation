@@ -182,6 +182,12 @@
                                                 {% endif %}
                                             </td>
                                         </tr>
+                                        <tr>
+                                            <th>메시지:</th>
+                                            <td>
+                                                <pre class="mb-0" style="white-space: pre-wrap; max-height: 150px; overflow-y: auto;">{{ sms.message_content or '-' }}</pre>
+                                            </td>
+                                        </tr>
                                     </table>
                                 </div>
                             </details>
