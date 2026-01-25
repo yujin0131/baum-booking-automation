@@ -115,9 +115,12 @@ class SmartplaceCrawler:
                 # 세션 파일 삭제
                 from pathlib import Path
                 session_file = Path(self.SESSION_FILE)
-                if session_file.exists():
-                    session_file.unlink()
-                    logger.info(f"세션 파일 삭제: {self.SESSION_FILE}")
+                try:
+                    if session_file.exists():
+                        session_file.unlink(missing_ok=True)
+                        logger.info(f"세션 파일 삭제: {self.SESSION_FILE}")
+                except OSError as e:
+                    logger.warning(f"세션 파일 삭제 실패 : {e}")
 
                 # 재로그인
                 success = await self.auth.login(self.username, self.password)

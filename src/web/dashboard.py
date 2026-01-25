@@ -15,22 +15,38 @@ from src.utils.datetime_utils import now_kst
 CRAWL_STATUS_FILE = Path("crawl_status.json")
 
 
+def get_crawl_status() -> dict:
+    """크롤링 상태 전체 조회"""
+    if not CRAWL_STATUS_FILE.exists():
+        return {}
+    try:
+        return json.loads(CRAWL_STATUS_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def save_crawl_status(status: dict):
+    """크롤링 상태 저장"""
+    current = get_crawl_status()
+    current.update(status)
+    CRAWL_STATUS_FILE.write_text(json.dumps(current))
+
+
 def get_last_crawl_time() -> Optional[datetime]:
     """마지막 크롤링 시간 조회"""
-    if not CRAWL_STATUS_FILE.exists():
-        return None
-    try:
-        data = json.loads(CRAWL_STATUS_FILE.read_text())
-        return datetime.fromisoformat(data.get("last_crawl_time"))
-    except Exception:
-        return None
+    status = get_crawl_status()
+    last_crawl = status.get("last_crawl_time")
+    if last_crawl:
+        try:
+            return datetime.fromisoformat(last_crawl)
+        except Exception:
+            pass
+    return None
 
 
 def save_crawl_time():
     """크롤링 시간 저장"""
-    CRAWL_STATUS_FILE.write_text(json.dumps({
-        "last_crawl_time": now_kst().isoformat()
-    }))
+    save_crawl_status({"last_crawl_time": now_kst().isoformat()})
 
 app = FastAPI(title="Booking Automation Dashboard")
 

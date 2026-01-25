@@ -115,57 +115,45 @@ class NaverAuth:
     async def init_browser(self) -> Page:
         self._playwright = await async_playwright().start()
 
-        # Firefox 사용 (Chromium이 macOS에서 크래시)
-        self.browser = await self._playwright.firefox.launch(
+        # Chromium
+        self.browser = await self._playwright.chromium.launch(
             headless=self.headless,
             args=[
-                '--disable-dev-shm-usage',  # /dev/shm 메모리 사용 제한
-                '--disable-blink-features=AutomationControlled',  # 자동화 탐지 우회
+                '--disable-gpu',
+                '--disable-dev-shm-usage',
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-extensions',
+                '--disable-background-networking',
+                '--disable-default-apps',
+                '--disable-sync',
+                '--disable-translate',
+                '--metrics-recording-only',
+                '--mute-audio',
+                '--no-first-run',
+                '--safebrowsing-disable-auto-update',
+                '--disable-blink-features=AutomationControlled',
+                '--js-flags=--max-old-space-size=128',
+                '--disable-features=TranslateUI',
+                '--disable-ipc-flooding-protection',
+                '--disable-renderer-backgrounding',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-component-update',
+                '--disable-breakpad',
+                '--disable-hang-monitor',
             ],
-            # Firefox 메모리 최적화 설정
-            firefox_user_prefs={
-                'browser.cache.disk.enable': False,
-                'browser.cache.memory.enable': False,
-                'browser.cache.memory.capacity': 0,
-                'browser.sessionstore.resume_from_crash': False,
-                # 멀티프로세스 완전 비활성화
-                'dom.ipc.processCount': 1,
-                'dom.ipc.processCount.webIsolated': 0,
-                'fission.autostart': False,
-                'browser.tabs.remote.separatePrivilegedContentProcess': False,
-                'browser.tabs.remote.separatePrivilegedMozillaWebContentProcess': False,
-                'dom.ipc.plugins.enabled': False,
-                # 추가 메모리 최적화
-                'javascript.options.mem.max': 128 * 1024 * 1024,
-                'javascript.options.mem.gc_incremental': True,
-                'javascript.options.mem.gc_per_zone': True,
-                'image.mem.decode_bytes_at_a_time': 16384,
-                'media.memory_cache_max_size': 8192,
-                'gfx.canvas.accelerated': False,
-                'layers.acceleration.disabled': True,
-                'gfx.webrender.all': False,
-                'layout.css.devPixelsPerPx': '1.0',
-                # 네트워크 메모리 최적화
-                'network.buffer.cache.size': 4096,
-                'network.buffer.cache.count': 12,
-                'network.http.max-connections': 32,
-                'network.http.max-persistent-connections-per-server': 4,
-            }
         )
 
-        # 컨텍스트 생성 - 실제 사용자처럼 보이는 설정
+        # 컨텍스트 생성
         self.context = await self.browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
+            viewport={'width': 1280, 'height': 720},
             user_agent=(
-                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                 'AppleWebKit/537.36 (KHTML, like Gecko) '
                 'Chrome/120.0.0.0 Safari/537.36'
             ),
             locale='ko-KR',
             timezone_id='Asia/Seoul',
-            # 실제 브라우저 권한 설정
-            permissions=['geolocation'],
-            geolocation={'latitude': 37.5665, 'longitude': 126.9780},
         )
 
         # 불필요한 리소스 차단으로 메모리/CPU 최적화 (stylesheet는 제외 - 렌더링에 필요할 수 있음)
@@ -309,50 +297,97 @@ class NaverAuth:
 
     async def save_session(self, filepath: str):
         if self.context:
-            await self.context.storage_state(path=filepath)
-            logger.info(f"세션이 {filepath}에 저장되었습니다.")
+            import tempfile
+            import shutil
+            from pathlib import Path
+
+            try:
+                # 임시 파일에 먼저 저장
+                dir_path = Path(filepath).parent or Path(".")
+                with tempfile.NamedTemporaryFile(mode='w', dir=dir_path, suffix='.tmp', delete=False) as tmp:
+                    tmp_path = tmp.name
+
+                await self.context.storage_state(path=tmp_path)
+
+                # atomic rename으로 원본 파일 교체
+                shutil.move(tmp_path, filepath)
+                logger.info(f"세션이 {filepath}에 저장되었습니다.")
+            except Exception as e:
+                logger.error(f"세션 저장 실패: {e}")
+                # 임시 파일 정리
+                try:
+                    if 'tmp_path' in locals():
+                        Path(tmp_path).unlink(missing_ok=True)
+                except:
+                    pass
 
     async def load_session(self, filepath: str) -> bool:
+        import asyncio
+        from pathlib import Path
+
+        session_path = Path(filepath)
+        if not session_path.exists():
+            logger.warning(f"세션 파일이 존재하지 않음: {filepath}")
+            return False
+
+        # 파일 접근 가능할 때까지 재시도 (최대 3회)
+        for attempt in range(3):
+            try:
+                # 파일 읽기 테스트
+                with open(filepath, 'r') as f:
+                    f.read(1)
+                break
+            except OSError as e:
+                if e.errno == 16:  # Device or resource busy
+                    logger.warning(f"세션 파일 잠금 감지, 재시도 {attempt + 1}/3")
+                    await asyncio.sleep(1)
+                    if attempt == 2:
+                        logger.error("세션 파일 접근 불가, 파일 삭제 후 재로그인 필요")
+                        session_path.unlink(missing_ok=True)
+                        return False
+                else:
+                    raise
+
         try:
             self._playwright = await async_playwright().start()
-            self.browser = await self._playwright.firefox.launch(
+            self.browser = await self._playwright.chromium.launch(
                 headless=self.headless,
                 args=[
+                    '--disable-gpu',
                     '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                    '--disable-default-apps',
+                    '--disable-sync',
+                    '--disable-translate',
+                    '--metrics-recording-only',
+                    '--mute-audio',
+                    '--no-first-run',
+                    '--safebrowsing-disable-auto-update',
                     '--disable-blink-features=AutomationControlled',
+                    '--js-flags=--max-old-space-size=128',
+                    '--disable-features=TranslateUI',
+                    '--disable-ipc-flooding-protection',
+                    '--disable-renderer-backgrounding',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-component-update',
+                    '--disable-breakpad',
+                    '--disable-hang-monitor',
                 ],
-                # Firefox 메모리 최적화 설정 (저메모리 서버용)
-                firefox_user_prefs={
-                    # 캐시 완전 비활성화
-                    'browser.cache.disk.enable': False,
-                    'browser.cache.memory.enable': False,
-                    'browser.cache.memory.capacity': 0,
-                    'browser.sessionstore.resume_from_crash': False,
-                    # 멀티프로세스 완전 비활성화
-                    'dom.ipc.processCount': 1,
-                    'dom.ipc.processCount.webIsolated': 0,
-                    'fission.autostart': False,
-                    'browser.tabs.remote.separatePrivilegedContentProcess': False,
-                    'browser.tabs.remote.separatePrivilegedMozillaWebContentProcess': False,
-                    'dom.ipc.plugins.enabled': False,
-                    # 추가 메모리 최적화
-                    'javascript.options.mem.max': 128 * 1024 * 1024,
-                    'javascript.options.mem.gc_incremental': True,
-                    'javascript.options.mem.gc_per_zone': True,
-                    'image.mem.decode_bytes_at_a_time': 16384,
-                    'media.memory_cache_max_size': 8192,
-                    'gfx.canvas.accelerated': False,
-                    'layers.acceleration.disabled': True,
-                    'gfx.webrender.all': False,
-                    'layout.css.devPixelsPerPx': '1.0',
-                    # 네트워크 메모리 최적화
-                    'network.buffer.cache.size': 4096,
-                    'network.buffer.cache.count': 12,
-                    'network.http.max-connections': 32,
-                    'network.http.max-persistent-connections-per-server': 4,
-                }
             )
-            self.context = await self.browser.new_context(storage_state=filepath)
+            self.context = await self.browser.new_context(
+                storage_state=filepath,
+                viewport={'width': 1280, 'height': 720},
+                user_agent=(
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                    'AppleWebKit/537.36 (KHTML, like Gecko) '
+                    'Chrome/120.0.0.0 Safari/537.36'
+                ),
+                locale='ko-KR',
+                timezone_id='Asia/Seoul',
+            )
 
             # 불필요한 리소스 차단으로 메모리/CPU 최적화 (stylesheet는 제외)
             await self.context.route("**/*", lambda route: (

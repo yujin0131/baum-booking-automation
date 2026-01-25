@@ -18,14 +18,14 @@ from src.utils.constants import SCRAPE_MIN_INTERVAL_MINUTES, SCRAPE_MAX_INTERVAL
 
 
 class BookingScheduler:
+    FAILURE_THRESHOLD_MINUTES = 30
+
     def __init__(self):
         self.scheduler = AsyncIOScheduler(timezone=ZoneInfo("Asia/Seoul"))
         self.scraper = None
         # self.sms_sender: Optional[SMSSender] = None
         self.kakao_sender: Optional[KakaoSender] = None
         self.test_mode = settings.use_test_mode
-        self._consecutive_failures = 0
-        self._max_failures_before_alert = 3
         logger.info(f"Scheduler init ({self.test_mode})")
 
     async def initialize(self):
@@ -156,8 +156,6 @@ class BookingScheduler:
             if bookings_data is None:
                 raise Exception("크롤링 실패: 결과가 None (브라우저 크래시 또는 네트워크 오류)")
 
-            self._consecutive_failures = 0
-
             if not bookings_data:
                 logger.info("No new bookings")
                 return
@@ -224,16 +222,48 @@ class BookingScheduler:
             self._schedule_next_scrape()
 
     async def _handle_scrape_failure(self, error_message: str):
-        """크롤링 실패 처리 및 관리자 알림"""
-        self._consecutive_failures += 1
-        logger.warning(f"크롤링 연속 실패: {self._consecutive_failures}회")
+        """크롤링 실패 알림"""
+        from src.web.dashboard import get_crawl_status, save_crawl_status, get_last_crawl_time
 
-        if self._consecutive_failures >= self._max_failures_before_alert:
-            await self.kakao_sender.send_admin_alert(
-                f"[크롤링 장애] {self._consecutive_failures}회 연속 실패\n"
-                f"서버 확인 필요\n\n"
-                f"에러: {error_message[:80]}"
-            )
+        now = datetime.now(ZoneInfo("Asia/Seoul"))
+        today = now.date().isoformat()
+        status = get_crawl_status()
+
+        last_success_dt = get_last_crawl_time()
+        last_alert_date = status.get("last_alert_date")
+
+        minutes_since_success = None
+        if last_success_dt:
+            minutes_since_success = (now - last_success_dt).total_seconds() / 60
+
+        logger.warning(f"크롤링 실패 (마지막 성공: {int(minutes_since_success) if minutes_since_success else '없음'}분 전)")
+
+        if last_alert_date == today:
+            logger.debug("오늘 이미 장애 알림 발송함, 스킵")
+            return
+
+        # 마지막 성공이 30분 이상 전이거나 성공 기록 없으면 알림
+        should_alert = (
+            last_success_dt is None or
+            minutes_since_success >= self.FAILURE_THRESHOLD_MINUTES
+        )
+
+        if should_alert:
+            try:
+                alert_msg = f"[크롤링 장애] 서버 확인 필요\n"
+                if minutes_since_success:
+                    alert_msg += f"마지막 성공: {int(minutes_since_success)}분 전\n\n"
+                alert_msg += f"에러: {error_message[:80]}"
+
+                result = await self.kakao_sender.send_admin_alert(alert_msg)
+
+                if result.get("success"):
+                    logger.info("크롤링 장애 알림 발송 성공")
+                    save_crawl_status({"last_alert_date": today})
+                else:
+                    logger.error(f"크롤링 장애 알림 발송 실패: {result}")
+            except Exception as e:
+                logger.error(f"크롤링 장애 알림 발송 중 예외: {e}")
 
     async def send_pending_kakao(self):
         from src.utils.constants import SMS_BATCH_SIZE, SMS_BATCH_DELAY_SECONDS
