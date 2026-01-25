@@ -342,8 +342,11 @@ class NaverAuth:
                     logger.warning(f"세션 파일 잠금 감지, 재시도 {attempt + 1}/3")
                     await asyncio.sleep(1)
                     if attempt == 2:
-                        logger.error("세션 파일 접근 불가, 파일 삭제 후 재로그인 필요")
-                        session_path.unlink(missing_ok=True)
+                        logger.error("세션 파일 접근 불가, 파일 초기화 후 재로그인 필요")
+                        try:
+                            session_path.write_text("{}")
+                        except OSError:
+                            pass
                         return False
                 else:
                     raise
