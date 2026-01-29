@@ -141,6 +141,8 @@ class NaverAuth:
                 '--disable-component-update',
                 '--disable-breakpad',
                 '--disable-hang-monitor',
+                '--single-process',
+                '--no-zygote',
             ],
         )
 
@@ -378,6 +380,8 @@ class NaverAuth:
                     '--disable-component-update',
                     '--disable-breakpad',
                     '--disable-hang-monitor',
+                    '--single-process',
+                    '--no-zygote',
                 ],
             )
             self.context = await self.browser.new_context(

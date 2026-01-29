@@ -62,6 +62,14 @@ class SmartplaceCrawler:
                     logger.info("세션 만료됨, 재로그인 필요")
             except Exception as e:
                 logger.warning(f"세션 로드 실패: {e}")
+                # 실패 시 브라우저 정리
+                if self.auth:
+                    try:
+                        await self.auth.close()
+                    except Exception:
+                        pass
+                    self.auth = None
+                    self._browser_initialized = False
 
         # 브라우저 초기화 후 새로 로그인
         await self._init_browser_if_needed()
@@ -84,7 +92,27 @@ class SmartplaceCrawler:
             (페이지 outerHTML, 오늘이용 필터 성공 여부)
         """
         try:
-            # 주기적 브라우저 재시작 (메모리 누수 방지)
+            return await asyncio.wait_for(
+                self._crawl_booking_list_internal(target_url),
+                timeout=120.0
+            )
+        except asyncio.TimeoutError:
+            logger.error("크롤링 타임아웃 (2분 초과)")
+            if self.auth:
+                try:
+                    await self.auth.close()
+                except Exception:
+                    pass
+                self.auth = None
+                self._browser_initialized = False
+            return None, False
+        except Exception as e:
+            logger.error(f"[Error] 크롤링 중 오류: {e}")
+            return None, False
+
+    async def _crawl_booking_list_internal(self, target_url: Optional[str] = None) -> Tuple[Optional[str], bool]:
+        """내부 크롤링 로직"""
+        try:
             self._crawl_count += 1
             if self._crawl_count >= BROWSER_RESTART_INTERVAL:
                 logger.info(f"브라우저 재시작 (크롤링 {self._crawl_count}회)")
