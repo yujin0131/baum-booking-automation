@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 from datetime import datetime, timedelta
+from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session, joinedload
 from loguru import logger
 
@@ -330,11 +331,20 @@ class BookingManager:
         try:
             now = now_kst()
 
+            # SCHEDULED 상태이거나, FAILED 상태이면서 재시도 가능한 SMS를 조회
             pending_logs = (
                 self.db.query(SMSLog)
                 .filter(
-                    SMSLog.status == SMSStatus.SCHEDULED,
                     SMSLog.scheduled_time <= now,
+                )
+                .filter(
+                    or_(
+                        SMSLog.status == SMSStatus.SCHEDULED,
+                        and_(
+                            SMSLog.status == SMSStatus.FAILED,
+                            SMSLog.retry_count < SMSLog.max_retries
+                        )
+                    )
                 )
                 .order_by(SMSLog.scheduled_time)
                 .all()
