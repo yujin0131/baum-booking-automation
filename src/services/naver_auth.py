@@ -145,11 +145,8 @@ class NaverAuth:
             '--start-maximized',
         ]
 
-        if self.headless:
-            launch_args.append('--headless=new')
-
         self.browser = await self._playwright.chromium.launch(
-            headless=False,  # --headless=new로 제어
+            headless=False,
             args=launch_args,
         )
 
