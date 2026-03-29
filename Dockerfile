@@ -35,4 +35,5 @@ RUN mkdir -p /app/logs
 EXPOSE 8000
 
 # 애플리케이션 실행 (Xvfb 가상 디스플레이 사용)
-CMD ["xvfb-run", "--auto-servernum", "--server-args=-screen 0 1920x1080x24", "python", "main.py"]
+# Xvfb를 백그라운드로 시작하고 Python 실행
+CMD ["/bin/bash", "-c", "Xvfb :99 -screen 0 1920x1080x24 & sleep 2 && export DISPLAY=:99 && python main.py"]
