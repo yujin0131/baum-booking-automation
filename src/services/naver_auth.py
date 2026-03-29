@@ -145,18 +145,17 @@ class NaverAuth:
             '--start-maximized',
         ]
 
-        self.browser = await self._playwright.chromium.launch(
+        # Firefox 사용 (Chromium 봇 탐지 회피)
+        self.browser = await self._playwright.firefox.launch(
             headless=False,
-            args=launch_args,
         )
 
         # 컨텍스트 생성
         self.context = await self.browser.new_context(
             viewport={'width': 1920, 'height': 1080},
             user_agent=(
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                'AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/131.0.0.0 Safari/537.36'
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) '
+                'Gecko/20100101 Firefox/133.0'
             ),
             locale='ko-KR',
             timezone_id='Asia/Seoul',
