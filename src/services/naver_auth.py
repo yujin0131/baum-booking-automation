@@ -116,36 +116,41 @@ class NaverAuth:
         self._playwright = await async_playwright().start()
 
         # Chromium
+        launch_args = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--disable-site-isolation-trials',
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--disable-breakpad',
+            '--disable-component-extensions-with-background-pages',
+            '--disable-extensions',
+            '--disable-sync',
+            '--disable-translate',
+            '--disable-default-apps',
+            '--no-default-browser-check',
+            '--no-first-run',
+            '--no-pings',
+            '--password-store=basic',
+            '--use-mock-keychain',
+            '--ignore-certificate-errors',
+            '--ignore-certificate-errors-spki-list',
+            '--window-size=1920,1080',
+            '--start-maximized',
+        ]
+
+        if self.headless:
+            launch_args.append('--headless=new')
+
         self.browser = await self._playwright.chromium.launch(
-            headless=self.headless,
-            args=[
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-site-isolation-trials',
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-breakpad',
-                '--disable-component-extensions-with-background-pages',
-                '--disable-extensions',
-                '--disable-sync',
-                '--disable-translate',
-                '--disable-default-apps',
-                '--no-default-browser-check',
-                '--no-first-run',
-                '--no-pings',
-                '--password-store=basic',
-                '--use-mock-keychain',
-                '--ignore-certificate-errors',
-                '--ignore-certificate-errors-spki-list',
-                '--window-size=1920,1080',
-                '--start-maximized',
-            ],
+            headless=False,  # --headless=new로 제어
+            args=launch_args,
         )
 
         # 컨텍스트 생성
@@ -196,6 +201,19 @@ class NaverAuth:
                     }
                 }
             };
+
+            // 2-1. navigator.userAgentData 우회 (Headless 탐지 방지)
+            Object.defineProperty(navigator, 'userAgentData', {
+                get: () => ({
+                    brands: [
+                        { brand: "Not_A Brand", version: "8" },
+                        { brand: "Chromium", version: "131" },
+                        { brand: "Google Chrome", version: "131" }
+                    ],
+                    mobile: false,
+                    platform: "Windows"
+                })
+            });
 
             // 3. Permissions API 완전 우회
             const originalQuery = window.navigator.permissions.query;
