@@ -1,5 +1,5 @@
 # Playwright 공식 이미지 사용 (Python 3.11 + Firefox 포함)
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.48.0-jammy
 
 # 작업 디렉토리 설정
 WORKDIR /app
