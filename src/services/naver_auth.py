@@ -116,52 +116,46 @@ class NaverAuth:
         self._playwright = await async_playwright().start()
 
         # Chromium
-        launch_args = [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-blink-features=AutomationControlled',
-            '--disable-features=IsolateOrigins,site-per-process',
-            '--disable-site-isolation-trials',
-            '--disable-web-security',
-            '--disable-features=VizDisplayCompositor',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-renderer-backgrounding',
-            '--disable-breakpad',
-            '--disable-component-extensions-with-background-pages',
-            '--disable-extensions',
-            '--disable-sync',
-            '--disable-translate',
-            '--disable-default-apps',
-            '--no-default-browser-check',
-            '--no-first-run',
-            '--no-pings',
-            '--password-store=basic',
-            '--use-mock-keychain',
-            '--ignore-certificate-errors',
-            '--ignore-certificate-errors-spki-list',
-            '--window-size=1920,1080',
-            '--start-maximized',
-        ]
-
-        # Firefox 사용 (Chromium 봇 탐지 회피)
-        self.browser = await self._playwright.firefox.launch(
-            headless=False,
+        self.browser = await self._playwright.chromium.launch(
+            headless=self.headless,
+            args=[
+                '--disable-gpu',
+                '--disable-dev-shm-usage',
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-extensions',
+                '--disable-background-networking',
+                '--disable-default-apps',
+                '--disable-sync',
+                '--disable-translate',
+                '--metrics-recording-only',
+                '--mute-audio',
+                '--no-first-run',
+                '--safebrowsing-disable-auto-update',
+                '--disable-blink-features=AutomationControlled',
+                '--js-flags=--max-old-space-size=128',
+                '--disable-features=TranslateUI',
+                '--disable-ipc-flooding-protection',
+                '--disable-renderer-backgrounding',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-component-update',
+                '--disable-breakpad',
+                '--disable-hang-monitor',
+                '--single-process',
+                '--no-zygote',
+            ],
         )
 
         # 컨텍스트 생성
         self.context = await self.browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
+            viewport={'width': 1280, 'height': 720},
             user_agent=(
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) '
-                'Gecko/20100101 Firefox/133.0'
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/120.0.0.0 Safari/537.36'
             ),
             locale='ko-KR',
             timezone_id='Asia/Seoul',
-            extra_http_headers={
-                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-            },
         )
 
         # 불필요한 리소스 차단으로 메모리/CPU 최적화 (stylesheet는 제외 - 렌더링에 필요할 수 있음)
@@ -170,48 +164,22 @@ class NaverAuth:
             else route.continue_()
         ))
 
-        # 완벽한 봇 탐지 우회 스크립트
+        # WebDriver 탐지 우회 스크립트
         await self.context.add_init_script("""
-            // 1. WebDriver 속성 완전 제거
+            // WebDriver 속성 숨기기
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
             });
-            delete navigator.__proto__.webdriver;
 
-            // 2. Chrome 객체 완전 구현
+            // Chrome 속성 추가 (일반 크롬처럼 보이게)
             window.chrome = {
                 runtime: {},
                 loadTimes: function() {},
                 csi: function() {},
-                app: {
-                    isInstalled: false,
-                    InstallState: {
-                        DISABLED: 'disabled',
-                        INSTALLED: 'installed',
-                        NOT_INSTALLED: 'not_installed'
-                    },
-                    RunningState: {
-                        CANNOT_RUN: 'cannot_run',
-                        READY_TO_RUN: 'ready_to_run',
-                        RUNNING: 'running'
-                    }
-                }
+                app: {}
             };
 
-            // 2-1. navigator.userAgentData 우회 (Headless 탐지 방지)
-            Object.defineProperty(navigator, 'userAgentData', {
-                get: () => ({
-                    brands: [
-                        { brand: "Not_A Brand", version: "8" },
-                        { brand: "Chromium", version: "131" },
-                        { brand: "Google Chrome", version: "131" }
-                    ],
-                    mobile: false,
-                    platform: "Windows"
-                })
-            });
-
-            // 3. Permissions API 완전 우회
+            // Permissions 우회
             const originalQuery = window.navigator.permissions.query;
             window.navigator.permissions.query = (parameters) => (
                 parameters.name === 'notifications' ?
@@ -219,238 +187,40 @@ class NaverAuth:
                     originalQuery(parameters)
             );
 
-            // 4. Plugins 고급 위장
+            // 플러그인 배열 수정 (빈 배열이면 의심됨)
             Object.defineProperty(navigator, 'plugins', {
-                get: () => {
-                    const plugins = [
-                        {
-                            0: {type: "application/x-google-chrome-pdf", suffixes: "pdf", description: "Portable Document Format"},
-                            description: "Portable Document Format",
-                            filename: "internal-pdf-viewer",
-                            length: 1,
-                            name: "Chrome PDF Plugin"
-                        },
-                        {
-                            0: {type: "application/pdf", suffixes: "pdf", description: ""},
-                            description: "",
-                            filename: "mhjfbmdgcfjbbpaeojofohoefgiehjai",
-                            length: 1,
-                            name: "Chrome PDF Viewer"
-                        },
-                        {
-                            0: {type: "application/x-nacl", suffixes: "", description: "Native Client Executable"},
-                            1: {type: "application/x-pnacl", suffixes: "", description: "Portable Native Client Executable"},
-                            description: "Native Client",
-                            filename: "internal-nacl-plugin",
-                            length: 2,
-                            name: "Native Client"
-                        }
-                    ];
-                    plugins.refresh = function() {};
-                    plugins.item = function(index) { return this[index] || null; };
-                    plugins.namedItem = function(name) {
-                        return this.find(p => p.name === name) || null;
-                    };
-                    return plugins;
-                }
+                get: () => [
+                    {
+                        0: {type: "application/x-google-chrome-pdf"},
+                        description: "Portable Document Format",
+                        filename: "internal-pdf-viewer",
+                        length: 1,
+                        name: "Chrome PDF Plugin"
+                    },
+                    {
+                        0: {type: "application/pdf"},
+                        description: "",
+                        filename: "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+                        length: 1,
+                        name: "Chrome PDF Viewer"
+                    }
+                ]
             });
 
-            // 5. MimeTypes 위장
-            Object.defineProperty(navigator, 'mimeTypes', {
-                get: () => {
-                    const mimeTypes = [
-                        {type: "application/pdf", suffixes: "pdf", description: "Portable Document Format", enabledPlugin: {}},
-                        {type: "application/x-google-chrome-pdf", suffixes: "pdf", description: "Portable Document Format", enabledPlugin: {}},
-                        {type: "application/x-nacl", suffixes: "", description: "Native Client Executable", enabledPlugin: {}},
-                        {type: "application/x-pnacl", suffixes: "", description: "Portable Native Client Executable", enabledPlugin: {}}
-                    ];
-                    mimeTypes.item = function(index) { return this[index] || null; };
-                    mimeTypes.namedItem = function(name) {
-                        return this.find(m => m.type === name) || null;
-                    };
-                    return mimeTypes;
-                }
-            });
-
-            // 6. Languages 설정
+            // Languages 설정
             Object.defineProperty(navigator, 'languages', {
                 get: () => ['ko-KR', 'ko', 'en-US', 'en']
             });
 
-            // 7. Platform & Hardware 정보
-            Object.defineProperty(navigator, 'platform', {
-                get: () => 'Win32'
-            });
-
+            // 하드웨어 동시성 (코어 수)
             Object.defineProperty(navigator, 'hardwareConcurrency', {
                 get: () => 8
             });
 
+            // DeviceMemory
             Object.defineProperty(navigator, 'deviceMemory', {
                 get: () => 8
             });
-
-            Object.defineProperty(navigator, 'vendor', {
-                get: () => 'Google Inc.'
-            });
-
-            // 8. Connection API
-            Object.defineProperty(navigator, 'connection', {
-                get: () => ({
-                    downlink: 10,
-                    effectiveType: '4g',
-                    rtt: 50,
-                    saveData: false
-                })
-            });
-
-            // 9. Battery API 우회
-            if (navigator.getBattery) {
-                const originalGetBattery = navigator.getBattery;
-                navigator.getBattery = function() {
-                    return originalGetBattery.apply(this, arguments).then(battery => {
-                        Object.defineProperty(battery, 'charging', { get: () => true });
-                        Object.defineProperty(battery, 'chargingTime', { get: () => 0 });
-                        Object.defineProperty(battery, 'dischargingTime', { get: () => Infinity });
-                        Object.defineProperty(battery, 'level', { get: () => 1 });
-                        return battery;
-                    });
-                };
-            }
-
-            // 10. Geolocation API
-            if (navigator.geolocation) {
-                const originalGetCurrentPosition = navigator.geolocation.getCurrentPosition;
-                navigator.geolocation.getCurrentPosition = function(success, error, options) {
-                    const position = {
-                        coords: {
-                            accuracy: 20,
-                            altitude: null,
-                            altitudeAccuracy: null,
-                            heading: null,
-                            latitude: 37.5665,
-                            longitude: 126.9780,
-                            speed: null
-                        },
-                        timestamp: Date.now()
-                    };
-                    success(position);
-                };
-            }
-
-            // 11. Screen 정보 정교화
-            Object.defineProperty(screen, 'colorDepth', { get: () => 24 });
-            Object.defineProperty(screen, 'pixelDepth', { get: () => 24 });
-
-            // 12. Notification API
-            Object.defineProperty(Notification, 'permission', {
-                get: () => 'default'
-            });
-
-            // 13. toString() 오버라이드로 네이티브 함수처럼 보이게
-            const originalToString = Function.prototype.toString;
-            Function.prototype.toString = function() {
-                if (this === navigator.permissions.query) {
-                    return 'function query() { [native code] }';
-                }
-                if (this === navigator.getBattery) {
-                    return 'function getBattery() { [native code] }';
-                }
-                return originalToString.call(this);
-            };
-
-            // 14. Canvas Fingerprinting 노이즈 추가
-            const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
-            CanvasRenderingContext2D.prototype.getImageData = function() {
-                const imageData = originalGetImageData.apply(this, arguments);
-                // 미세한 노이즈 추가
-                for (let i = 0; i < imageData.data.length; i += 4) {
-                    imageData.data[i] = imageData.data[i] + Math.floor(Math.random() * 3) - 1;
-                }
-                return imageData;
-            };
-
-            const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-            HTMLCanvasElement.prototype.toDataURL = function() {
-                const context = this.getContext('2d');
-                if (context) {
-                    const imageData = context.getImageData(0, 0, this.width, this.height);
-                    // 미세한 변경
-                    for (let i = 0; i < Math.min(10, imageData.data.length); i += 4) {
-                        imageData.data[i] = imageData.data[i] + 1;
-                    }
-                    context.putImageData(imageData, 0, 0);
-                }
-                return originalToDataURL.apply(this, arguments);
-            };
-
-            // 15. WebGL Fingerprinting 우회
-            const getParameter = WebGLRenderingContext.prototype.getParameter;
-            WebGLRenderingContext.prototype.getParameter = function(parameter) {
-                if (parameter === 37445) { // UNMASKED_VENDOR_WEBGL
-                    return 'Intel Inc.';
-                }
-                if (parameter === 37446) { // UNMASKED_RENDERER_WEBGL
-                    return 'Intel Iris OpenGL Engine';
-                }
-                return getParameter.apply(this, arguments);
-            };
-
-            // 16. AudioContext Fingerprinting 우회
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (AudioContext) {
-                const originalCreateAnalyser = AudioContext.prototype.createAnalyser;
-                AudioContext.prototype.createAnalyser = function() {
-                    const analyser = originalCreateAnalyser.apply(this, arguments);
-                    const originalGetFloatFrequencyData = analyser.getFloatFrequencyData;
-                    analyser.getFloatFrequencyData = function(array) {
-                        originalGetFloatFrequencyData.apply(this, arguments);
-                        for (let i = 0; i < array.length; i++) {
-                            array[i] = array[i] + Math.random() * 0.0001;
-                        }
-                    };
-                    return analyser;
-                };
-            }
-
-            // 17. iframe contentWindow 우회
-            const originalContentWindow = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
-            Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
-                get: function() {
-                    const win = originalContentWindow.get.call(this);
-                    if (win) {
-                        try {
-                            win.navigator.webdriver = undefined;
-                        } catch(e) {}
-                    }
-                    return win;
-                }
-            });
-
-            // 18. Error Stack Trace 정리
-            Error.stackTraceLimit = 10;
-
-            // 19. Date/Timezone 일관성
-            Date.prototype.getTimezoneOffset = function() {
-                return -540; // KST (UTC+9)
-            };
-
-            // 20. MediaDevices 우회
-            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-                const originalEnumerateDevices = navigator.mediaDevices.enumerateDevices;
-                navigator.mediaDevices.enumerateDevices = function() {
-                    return originalEnumerateDevices.apply(this, arguments).then(devices => {
-                        return devices.map((device, index) => ({
-                            deviceId: device.deviceId || `default${index}`,
-                            groupId: device.groupId || `group${index}`,
-                            kind: device.kind,
-                            label: device.label || ''
-                        }));
-                    });
-                };
-            }
-
-            console.log('Advanced stealth mode activated');
         """)
 
         self.page = await self.context.new_page()
@@ -464,9 +234,15 @@ class NaverAuth:
             await self.init_browser()
 
         try:
+            # 봇 탐지 우회: 사전 방문 (정상 사용자처럼 메인 페이지 먼저 방문)
+            logger.info("네이버 메인 페이지 사전 방문 (봇 탐지 우회)")
+            await self.page.goto("https://www.naver.com", wait_until="domcontentloaded", timeout=60000)
+            await self._random_delay(2000, 4000)  # 2-4초 대기 (사람처럼)
+
+            # Referer 체인: 메인에서 로그인 페이지로 이동
             logger.info(f"로그인 페이지 이동 중: {self.NAVER_LOGIN_URL}")
             await self.page.goto(self.NAVER_LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
-            await self._random_delay(1000, 2000)
+            await self._random_delay(3000, 5000)  # 3-5초 대기 강화
             logger.info("로그인 페이지 로드 완료")
             await self._random_mouse_movement(self.page)
 
@@ -475,13 +251,13 @@ class NaverAuth:
                 document.querySelector("#id").value = "{username}";
                 document.querySelector("#id").dispatchEvent(new Event("input", {{ bubbles: true }}));
             ''')
-            await self._random_delay(300, 600)
+            await self._random_delay(1500, 3000)  # 사람처럼 긴 딜레이
 
             await self.page.evaluate(f'''
                 document.querySelector("#pw").value = "{password}";
                 document.querySelector("#pw").dispatchEvent(new Event("input", {{ bubbles: true }}));
             ''')
-            await self._random_delay(500, 1000)
+            await self._random_delay(2000, 4000)  # 비밀번호 입력 후 더 긴 딜레이
 
             login_btn = await self.page.wait_for_selector(".btn_login", state="visible")
 
@@ -493,7 +269,7 @@ class NaverAuth:
                 await self._random_delay(100, 200)
 
             await login_btn.click()
-            await self._random_delay(2000, 3000)
+            await self._random_delay(4000, 6000)  # 로그인 처리 대기 시간 증가
             current_url = self.page.url
 
             # CAPTCHA 뜨는경우
